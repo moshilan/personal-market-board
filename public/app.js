@@ -87,7 +87,6 @@ function renderHome(view) {
   goldSection.append(goldGrid)
   const xau = element('article', 'reference-row')
   xau.append(element('span', '', view.xauUsd.label), element('strong', '', quoteValue(view.xauUsd, view.xauUsd.unitLabel)), statusLine(view.xauUsd))
-  goldSection.append(xau)
   const fuelSection = element('section', 'fuel-section')
   fuelSection.append(sectionHeading('油价摘要', '广东官方最高零售价'))
   const fuelGrid = element('div', 'fuel-grid')
@@ -98,7 +97,7 @@ function renderHome(view) {
   const brandList = element('div', 'brand-list')
   view.brands.forEach((item) => brandList.append(brandRow(item, false)))
   brandSection.append(brandList)
-  fragment.append(goldSection, fuelSection, brandSection)
+  fragment.append(goldSection, fuelSection, xau, brandSection)
   return fragment
 }
 
@@ -151,14 +150,6 @@ function selectView(viewName, focus = false) {
 }
 
 async function loadDisplay() {
-  if (location.protocol === 'file:') {
-    const launchNote = element('section', 'launch-note')
-    launchNote.append(element('h2', '', '请从本地服务打开此看板'), element('p', '', '双击项目根目录的「启动看板.cmd」，即可读取已保存的行情数据。'))
-    app.replaceChildren(launchNote)
-    app.setAttribute('aria-busy', 'false')
-    readingNote.textContent = '当前是直接打开的文件，无法读取本地行情数据'
-    return
-  }
   refreshButton.disabled = true
   refreshButton.setAttribute('aria-busy', 'true')
   refreshButton.textContent = '正在读取'
@@ -180,5 +171,5 @@ async function loadDisplay() {
 
 navigationButtons.forEach((button) => button.addEventListener('click', () => selectView(button.dataset.view, true)))
 refreshButton.addEventListener('click', loadDisplay)
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js')
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
 loadDisplay()

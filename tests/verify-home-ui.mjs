@@ -24,6 +24,10 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价摘要', exact: true }).waitFor())
     assert.equal(await page.getByText('98号汽油').count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    assert.equal(await page.evaluate(() => {
+      const navigationTop = document.querySelector('.bottom-nav').getBoundingClientRect().top
+      return document.querySelector('.fuel-grid').getBoundingClientRect().bottom <= navigationTop
+    }), true, '首页的92号和95号卡片不应被底部导航遮挡')
     assert.deepEqual(consoleErrors, [])
     await page.getByRole('button', { name: '金价' }).click()
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际与国内参考', exact: true }).waitFor())

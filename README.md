@@ -29,7 +29,7 @@
 
 运行本地测试：`node --test tests/*.test.mjs`
 
-运行首页：先执行`node scripts/collect-v1-data.mjs`写入本地展示数据，再双击项目根目录的`启动看板.cmd`。它会启动本地服务并打开`http://localhost:8787`。也可手动运行`node scripts/serve-dashboard.mjs`后访问该地址。不要直接打开`public/index.html`，因为浏览器无法从文件页面读取本地展示数据。`刷新显示`只重新读取本地数据，不触发采集。
+本地开发预览：首页数据写入后，运行`node scripts/serve-dashboard.mjs`，再访问`http://localhost:8787`。`刷新显示`只重新读取本地数据，不触发采集。
 
 首页使用底部导航在首页、金价、油价三个视图间切换；不包含趋势图。
 
