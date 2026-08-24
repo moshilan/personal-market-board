@@ -338,7 +338,7 @@ async function loadDisplay() {
   refreshButton.textContent = '正在读取'
   setReadingNote('正在读取本地展示数据')
   try {
-    const response = await fetch('/api/home', { cache: 'no-store' })
+    const response = await fetch(new URL('./api/home.json', import.meta.url), { cache: 'no-store' })
     if (!response.ok) throw new Error('读取失败')
     render(await response.json())
     setReadingNote('已重新读取本地展示数据', 2200)
@@ -354,5 +354,5 @@ async function loadDisplay() {
 
 navigationButtons.forEach((button) => button.addEventListener('click', () => selectView(button.dataset.view, true)))
 refreshButton.addEventListener('click', loadDisplay)
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js')
 loadDisplay()

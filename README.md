@@ -1,6 +1,6 @@
 # Personal Market Board
 
-面向个人及家人手机日常使用的零付费PWA行情看板。当前已完成核心数据采集、本地缓存与历史，以及首页最小版本。
+面向个人及家人手机日常使用的零付费PWA行情看板。当前已完成核心数据采集、本地缓存与历史、移动端页面、趋势图，以及GitHub Pages部署前适配。
 
 ## 目标范围
 
@@ -29,15 +29,44 @@
 
 运行本地测试：`node --test tests/*.test.mjs`
 
-本地开发预览：首页数据写入后，运行`node scripts/serve-dashboard.mjs`，再访问`http://localhost:8787`。`刷新显示`只重新读取本地数据，不触发采集。
+本地开发预览：运行`node scripts/collect-v1-data.mjs`、`node scripts/build-static-site.mjs`、`node scripts/serve-dashboard.mjs`，再访问`http://localhost:8787`。`刷新显示`只重新读取已生成的静态数据，不触发采集。
 
 首页使用底部导航在首页、金价、油价三个视图间切换。金价页提供国际黄金人民币折算价、Au99.99和国内外价差的真实历史趋势，支持7天、30天范围；油价页按实际调价生效日期展示92号、95号和0号柴油近30天记录。历史不足时明确提示积累中，不补造历史。
+
+## 部署与自动更新
+
+部署目标为GitHub Pages。GitHub Actions在每小时UTC第17分和第47分运行，错开整点与半点高峰，执行测试、真实采集、静态构建和Pages发布。GitHub的定时任务可能因平台负载延后或丢弃，页面始终显示实际采集时间，不将延迟数据标记为实时。[GitHub官方说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+
+应用代码只在主分支维护，采集状态单独存于`market-data`分支。该分支每次由Actions强制替换为一个仅含`market-data.json`的快照提交，不会让主分支积累自动采集提交。仓储保留最近31天真实历史，满足页面30天趋势窗口；下一次采集先恢复该快照，再按当前缓存与新鲜度规则更新。
+
+发布后的固定地址为`https://<GitHub用户名>.github.io/personal-market-board/`。应用的资源、数据请求、PWA清单和Service Worker均使用相对路径，可在这个项目页子路径下工作。
+
+### GitHub账号侧操作
+
+以下操作需要仓库所有者在GitHub网页完成，本仓库尚未创建远程仓库，也未启用任何远程服务：
+
+- 新建公开仓库`personal-market-board`，并推送本项目主分支。GitHub Free的Pages仅支持公开仓库
+- 在`Settings → Actions → General`将`Workflow permissions`设为`Read and write permissions`，供工作流更新独立数据分支
+- 在`Settings → Pages`将发布来源设为`GitHub Actions`
+- 打开`Actions`，手动运行一次`Refresh market data and deploy`，首次运行会创建`market-data`分支并完成首次Pages发布
+
+### 定时任务维护
+
+公开仓库连续60天没有仓库活动时，GitHub可能自动禁用scheduled workflow。[GitHub官方说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+
+- 每月在`Actions → Refresh market data and deploy`查看最近一次运行是否成功，并确认workflow没有显示已禁用
+- 若已停用，在该workflow页面的菜单中选择`Enable workflow`，然后手动运行一次
+- 修改并提交工作流中的cron配置也会重新启用该scheduled workflow
+
+PWA包含manifest、192px与512px PNG图标、Apple触屏图标和最小Service Worker。它支持浏览器提供的安装入口，但不缓存行情数据或伪造离线行情；断网时无法获取的新数据仍会按页面现有失败状态显示。
 
 ## 目录
 
 - `src/`：数据模型与首页展示模型
 - `public/`：首页静态资源与PWA基础文件
-- `scripts/serve-dashboard.mjs`：本地首页服务
+- `scripts/build-static-site.mjs`：将本地仓储构建为静态站点和`api/home.json`
+- `scripts/serve-dashboard.mjs`：本地静态站点服务
+- `.github/workflows/refresh-and-deploy.yml`：定时采集、独立数据分支和GitHub Pages发布
 - `docs/`：需求、数据源与设计文档
 - `tests/`：后续测试代码
 

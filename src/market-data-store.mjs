@@ -3,6 +3,7 @@ import { dirname } from 'node:path'
 
 export const STORE_VERSION = 1
 export const HISTORY_INTERVAL_MS = 30 * 60 * 1_000
+export const HISTORY_RETENTION_MS = 31 * 24 * 60 * 60 * 1_000
 
 const ASSET_IDS = {
   'XAU/USD': 'xau-usd',
@@ -199,6 +200,8 @@ export async function persistSnapshot(rawSnapshot, storePath) {
     store.latestSuccessfulByAsset[observation.assetId] = observation
     if (shouldAppendHistory(store.history, observation)) store.history.push(observation)
   }
+  const retentionStart = Date.parse(liveSnapshot.collectedAt) - HISTORY_RETENTION_MS
+  store.history = store.history.filter((observation) => Date.parse(observation.collectedAt) >= retentionStart)
   await writeStore(storePath, store)
   return { liveSnapshot, displaySnapshot: buildDisplaySnapshot(liveSnapshot, store), store }
 }

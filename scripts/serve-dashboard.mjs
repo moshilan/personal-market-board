@@ -1,56 +1,40 @@
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
-import { readStore } from '../src/market-data-store.mjs'
-import { buildDashboardResponse } from '../src/dashboard-data.mjs'
+import { dirname, extname, resolve } from 'node:path'
 
 const directory = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(directory, '..')
-const storePath = resolve(projectRoot, 'data/market-data.json')
-const publicDirectory = resolve(projectRoot, 'public')
+const siteDirectory = resolve(projectRoot, 'dist')
 const port = Number(process.env.PORT ?? 8787)
-const staticFiles = {
-  '/': ['index.html', 'text/html; charset=utf-8'],
-  '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
-  '/styles.css': ['styles.css', 'text/css; charset=utf-8'],
-  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json; charset=utf-8'],
-  '/icon.svg': ['icon.svg', 'image/svg+xml'],
-  '/sw.js': ['sw.js', 'text/javascript; charset=utf-8'],
-}
-
-async function homeResponse() {
-  const store = await readStore(storePath)
-  return buildDashboardResponse(store)
-}
-
-function sendJson(response, statusCode, payload) {
-  response.writeHead(statusCode, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
-  response.end(JSON.stringify(payload))
+const contentTypes = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 }
 
 createServer(async (request, response) => {
-  if (request.url === '/api/home') {
-    try {
-      sendJson(response, 200, await homeResponse())
-    } catch (error) {
-      sendJson(response, 500, { error: '无法读取本地展示数据', detail: error.message })
-    }
-    return
-  }
-
-  const staticFile = staticFiles[request.url]
-  if (!staticFile) {
+  const requestPath = new URL(request.url, `http://${request.headers.host}`).pathname
+  const relativePath = requestPath === '/' ? 'index.html' : requestPath.replace(/^\/+/, '')
+  const filePath = resolve(siteDirectory, relativePath)
+  if (!filePath.startsWith(`${siteDirectory}\\`) && filePath !== resolve(siteDirectory, 'index.html')) {
     response.writeHead(404).end('Not found')
     return
   }
 
   try {
-    const [fileName, contentType] = staticFile
-    const content = await readFile(resolve(publicDirectory, fileName))
-    response.writeHead(200, { 'content-type': contentType, 'cache-control': 'no-cache' })
+    const content = await readFile(filePath)
+    const isData = relativePath === 'api/home.json'
+    response.writeHead(200, {
+      'content-type': contentTypes[extname(filePath)] ?? 'application/octet-stream',
+      'cache-control': isData ? 'no-store' : 'no-cache',
+    })
     response.end(content)
   } catch {
-    response.writeHead(500).end('Unable to load application files')
+    response.writeHead(404).end('Not found')
   }
 }).listen(port, () => console.log(`个人行情看板运行于 http://localhost:${port}`))

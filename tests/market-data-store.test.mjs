@@ -82,3 +82,12 @@ test('历史按30分钟、品牌日期和油价生效时间去重', async () => 
   assert.equal(getHistory(third.store, 'guangdong-fuel-92').length, 1)
   assert.equal(buildDisplaySnapshot(first.liveSnapshot, second.store).observations[0].displayStatus, 'current')
 })
+
+test('历史只保留最近31天，当前成功缓存不受影响', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
+  const storePath = join(directory, 'market-data.json')
+  await persistSnapshot(snapshot('2026-07-01T08:00:00.000Z'), storePath)
+  const result = await persistSnapshot(snapshot('2026-08-24T08:00:00.000Z'), storePath)
+  assert.equal(getHistory(result.store, 'xau-usd').length, 1)
+  assert.equal(result.store.latestSuccessfulByAsset['xau-usd'].observedAt, '2026-08-24T08:00:00.000Z')
+})

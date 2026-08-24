@@ -1,0 +1,74 @@
+name: Refresh market data and deploy
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: market-data-deploy
+  cancel-in-progress: false
+
+jobs:
+  refresh-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout application source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore the previous market snapshot
+        shell: bash
+        run: |
+          if git fetch origin market-data; then
+            mkdir -p data
+            git show FETCH_HEAD:market-data.json > data/market-data.json
+          else
+            echo 'No previous market-data branch yet'
+          fi
+
+      - name: Run Node tests
+        run: node --test tests/*.test.mjs
+
+      - name: Collect real market data
+        run: node scripts/collect-v1-data.mjs
+
+      - name: Build static site
+        run: node scripts/build-static-site.mjs
+
+      - name: Replace the rolling data branch snapshot
+        shell: bash
+        run: |
+          git worktree add --detach ../market-data-state
+          pushd ../market-data-state
+          git checkout --orphan market-data
+          git rm -rf .
+          cp ../personal-market-board/data/market-data.json market-data.json
+          git add market-data.json
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: refresh rolling market snapshot'
+          git push --force origin HEAD:market-data
+          popd
+          git worktree remove --force ../market-data-state
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
