@@ -1,16 +1,27 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { chromium } from 'playwright'
+import { pathToFileURL } from 'node:url'
+
+function playwrightModulePath() {
+  if (process.env.PLAYWRIGHT_MODULE_PATH) return process.env.PLAYWRIGHT_MODULE_PATH
+  const userProfile = process.env.USERPROFILE
+  if (!userProfile) throw new Error('请设置PLAYWRIGHT_MODULE_PATH或USERPROFILE以定位Playwright')
+  return resolve(userProfile, '.cache', 'codex-runtimes', 'codex-primary-runtime', 'dependencies', 'node', 'node_modules', 'playwright', 'index.mjs')
+}
+
+const modulePath = playwrightModulePath()
+if (!existsSync(modulePath)) throw new Error('未找到Playwright，请设置PLAYWRIGHT_MODULE_PATH')
+const { chromium } = await import(pathToFileURL(modulePath).href)
 
 const [baseUrl, outputDirectory] = process.argv.slice(2)
 if (!baseUrl || !outputDirectory) throw new Error('用法：node tests/verify-home-ui.mjs <url> <截图目录>')
 await mkdir(outputDirectory, { recursive: true })
 
-const browser = await chromium.launch({
-  headless: true,
-  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-})
+const chromePath = process.env.CHROME_EXECUTABLE_PATH
+  ?? (process.env.ProgramFiles ? resolve(process.env.ProgramFiles, 'Google', 'Chrome', 'Application', 'chrome.exe') : undefined)
+const browser = await chromium.launch({ headless: true, ...(chromePath && existsSync(chromePath) ? { executablePath: chromePath } : {}) })
 try {
   for (const width of [360, 393]) {
     const page = await browser.newPage({ viewport: { width, height: 844 }, deviceScaleFactor: 1 })
@@ -71,7 +82,7 @@ try {
     }), true, '油价页最后一个油品不应被底部导航遮挡')
     await page.getByRole('button', { name: '首页' }).click()
     await page.screenshot({ path: resolve(outputDirectory, `home-${width}.png`), fullPage: true })
-    await page.route('**/api/home', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }))
+    await page.route('**/api/home.json', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }))
     await page.getByRole('button', { name: '刷新显示' }).click()
     await page.getByText('未能读取本地展示数据').waitFor()
     assert.equal(await page.getByRole('heading', { name: '金价摘要', exact: true }).count(), 1)
