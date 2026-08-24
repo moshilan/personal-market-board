@@ -31,6 +31,8 @@
 
 运行首页：先执行`node scripts/collect-v1-data.mjs`写入本地展示数据，再执行`node scripts/serve-dashboard.mjs`，打开`http://localhost:8787`。`刷新显示`只重新读取本地数据，不触发采集。
 
+首页使用底部导航在首页、金价、油价三个视图间切换；不包含趋势图。
+
 ## 目录
 
 - `src/`：数据模型与首页展示模型

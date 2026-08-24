@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { buildDisplaySnapshot, readStore } from '../src/market-data-store.mjs'
-import { buildHomeView } from '../src/home-view-model.mjs'
+import { buildMarketViews } from '../src/home-view-model.mjs'
 
 const directory = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(directory, '..')
@@ -23,7 +23,7 @@ async function homeResponse() {
   const store = await readStore(storePath)
   const liveSnapshot = store.latestAttempt ?? { collectedAt: null, observations: [] }
   const displaySnapshot = buildDisplaySnapshot(liveSnapshot, store)
-  return { collectedAt: displaySnapshot.collectedAt, ...buildHomeView(displaySnapshot) }
+  return { collectedAt: displaySnapshot.collectedAt, views: buildMarketViews(displaySnapshot) }
 }
 
 function sendJson(response, statusCode, payload) {

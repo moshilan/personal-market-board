@@ -16,8 +16,8 @@
     <main class="page-shell">
       <header class="topbar">
         <div>
-          <p class="kicker">个人行情看板</p>
-          <h1>日常行情</h1>
+          <p class="kicker" id="page-kicker">广东 · 日常价格</p>
+          <h1 id="page-title" tabindex="-1">日常行情</h1>
         </div>
         <button class="display-refresh" type="button" aria-label="刷新显示">刷新显示</button>
       </header>
@@ -28,6 +28,11 @@
         </section>
       </div>
     </main>
+    <nav class="bottom-nav" aria-label="一级导航">
+      <button type="button" data-view="home" aria-current="page"><span aria-hidden="true">⌂</span>首页</button>
+      <button type="button" data-view="gold"><span aria-hidden="true">○</span>金价</button>
+      <button type="button" data-view="fuel"><span aria-hidden="true">◈</span>油价</button>
+    </nav>
     <script type="module" src="/app.js"></script>
   </body>
 </html>
