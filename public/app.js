@@ -10,6 +10,16 @@ let hasRendered = false
 let activeView = 'home'
 let latestData = null
 let readingNoteTimer = null
+let trendRangeDays = 7
+
+const TREND_COLORS = {
+  'international-gold-cny-gram': '#205c50',
+  au9999: '#a96f17',
+  'domestic-international-gold-spread': '#9d4a3f',
+  'guangdong-fuel-92': '#205c50',
+  'guangdong-fuel-95': '#a96f17',
+  'guangdong-fuel-0-diesel': '#526f9e',
+}
 
 function dateTime(value) {
   if (!value) return '暂无行情时间'
@@ -19,6 +29,13 @@ function dateTime(value) {
   if (Number.isNaN(date.getTime())) return value
   const fields = Object.fromEntries(new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Shanghai' }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
   return `${fields.month}月${fields.day}日 ${fields.hour}:${fields.minute}`
+}
+
+function dateShort(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value ?? ''
+  const fields = Object.fromEntries(new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', timeZone: 'Asia/Shanghai' }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  return `${fields.month}/${fields.day}`
 }
 
 function statusText(item, compact = false) { return item.displayStatus === 'cached' ? compact ? '缓存' : '缓存数据' : item.available ? '当前有效' : '不可用' }
@@ -49,6 +66,127 @@ function sectionHeading(title, note) {
   const heading = element('div', 'section-heading')
   heading.append(element('h2', '', title), element('p', '', note))
   return heading
+}
+
+function trendPoints(data, assetIds, days = trendRangeDays) {
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1_000
+  return assetIds.map((assetId) => ({
+    assetId,
+    points: (data.history ?? []).filter((item) => item.assetId === assetId && Date.parse(item.timestamp) >= cutoff),
+  }))
+}
+
+function svgNode(name, attributes = {}) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', name)
+  Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, String(value)))
+  return node
+}
+
+function scaleDomain(series) {
+  const points = series.flatMap((item) => item.points)
+  if (!points.length) return null
+  const values = points.map((item) => item.value)
+  const times = points.map((item) => Date.parse(item.timestamp))
+  const minValue = Math.min(...values)
+  const maxValue = Math.max(...values)
+  const padding = Math.max((maxValue - minValue) * 0.15, Math.abs(maxValue) * 0.002, 0.02)
+  return { minValue: minValue - padding, maxValue: maxValue + padding, minTime: Math.min(...times), maxTime: Math.max(...times) }
+}
+
+function chartSvg(series, { step = false, zeroLine = false } = {}) {
+  const domain = scaleDomain(series)
+  if (!domain) return null
+  const width = 320
+  const height = 174
+  const left = 39
+  const right = 12
+  const top = 17
+  const bottom = 31
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+  const valueRange = domain.maxValue - domain.minValue || 1
+  const timeRange = domain.maxTime - domain.minTime || 1
+  const x = (point) => left + (Date.parse(point.timestamp) - domain.minTime) / timeRange * plotWidth
+  const y = (value) => top + (domain.maxValue - value) / valueRange * plotHeight
+  const svg = svgNode('svg', { class: 'trend-svg', viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': '历史趋势图' })
+  ;[0, .5, 1].forEach((ratio) => svg.append(svgNode('line', { x1: left, y1: top + plotHeight * ratio, x2: width - right, y2: top + plotHeight * ratio, class: 'trend-grid-line' })))
+  if (zeroLine && domain.minValue <= 0 && domain.maxValue >= 0) svg.append(svgNode('line', { x1: left, y1: y(0), x2: width - right, y2: y(0), class: 'trend-zero-line' }))
+  ;[domain.maxValue, (domain.maxValue + domain.minValue) / 2, domain.minValue].forEach((value) => {
+    const label = svgNode('text', { x: left - 7, y: y(value) + 3, class: 'trend-axis-label', 'text-anchor': 'end' })
+    label.textContent = formatter.format(value)
+    svg.append(label)
+  })
+  const firstLabel = svgNode('text', { x: left, y: height - 8, class: 'trend-axis-label' })
+  firstLabel.textContent = dateShort(new Date(domain.minTime).toISOString())
+  const lastLabel = svgNode('text', { x: width - right, y: height - 8, class: 'trend-axis-label', 'text-anchor': 'end' })
+  lastLabel.textContent = dateShort(new Date(domain.maxTime).toISOString())
+  svg.append(firstLabel, lastLabel)
+  series.forEach(({ assetId, points }) => {
+    if (!points.length) return
+    const commands = points.map((point, index) => {
+      const pointX = x(point)
+      const pointY = y(point.value)
+      if (!index) return `M ${pointX} ${pointY}`
+      return step ? `H ${pointX} V ${pointY}` : `L ${pointX} ${pointY}`
+    })
+    svg.append(svgNode('path', { d: commands.join(' '), class: 'trend-line', stroke: TREND_COLORS[assetId] }))
+    points.forEach((point) => svg.append(svgNode('circle', { cx: x(point), cy: y(point.value), r: 3.5, class: 'trend-dot', fill: TREND_COLORS[assetId] })))
+  })
+  return svg
+}
+
+function trendLegend(items) {
+  const legend = element('div', 'trend-legend')
+  items.forEach(({ assetId, label }) => {
+    const item = element('span', 'trend-legend-item')
+    const dot = element('i', 'trend-legend-dot')
+    dot.style.background = TREND_COLORS[assetId]
+    item.append(dot, document.createTextNode(label))
+    legend.append(item)
+  })
+  return legend
+}
+
+function trendRangeButtons() {
+  const controls = element('div', 'trend-range')
+  ;[[7, '7天'], [30, '30天']].forEach(([days, label]) => {
+    const button = element('button', '', label)
+    button.type = 'button'
+    button.setAttribute('aria-pressed', String(trendRangeDays === days))
+    button.addEventListener('click', () => { trendRangeDays = days; render(latestData) })
+    controls.append(button)
+  })
+  return controls
+}
+
+function accumulationNote(series, days) {
+  const points = series.flatMap((item) => item.points)
+  if (!points.length) return element('p', 'trend-note', '历史数据积累中，尚无真实记录')
+  const timestamps = points.map((item) => Date.parse(item.timestamp))
+  const coverage = Math.max(...timestamps) - Math.min(...timestamps)
+  if (points.length < 2 || coverage < days * 24 * 60 * 60 * 1_000) return element('p', 'trend-note', `历史数据积累中，目前仅有${points.length}条真实记录`)
+  return element('p', 'trend-note', `近${days}天，共${points.length}条真实记录`)
+}
+
+function trendCard({ title, note, series, step = false, zeroLine = false, showRange = false, rangeDays = trendRangeDays }) {
+  const card = element('section', 'trend-card')
+  const heading = element('div', 'trend-card-heading')
+  const titleNode = element('div')
+  titleNode.append(element('h3', '', title), element('p', '', note))
+  heading.append(titleNode)
+  if (showRange) heading.append(trendRangeButtons())
+  card.append(heading, trendLegend(series))
+  const svg = chartSvg(series, { step, zeroLine })
+  if (svg) card.append(svg)
+  card.append(accumulationNote(series, rangeDays))
+  return card
+}
+
+function fuelMovement(item) {
+  if (item.points.length < 2) return '暂无前次调价记录'
+  const delta = item.points.at(-1).value - item.points.at(-2).value
+  if (delta === 0) return '最近一次未调价'
+  return `最近一次${delta > 0 ? '上涨' : '下降'}${formatter.format(Math.abs(delta))}元/升`
 }
 
 function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = true, compactStatus = false } = {}) {
@@ -130,12 +268,21 @@ function renderGold(view) {
   const references = element('div', 'reference-list')
   view.references.forEach((item) => references.append(quoteCard(item, 'reference-card', { source: true })))
   marketSection.append(references)
+  const historySection = element('section', 'trend-section')
+  historySection.append(sectionHeading('金价趋势', '仅展示本地真实记录'))
+  const goldSeries = trendPoints(latestData, ['international-gold-cny-gram', 'au9999'])
+  goldSeries[0].label = '国际折算价'
+  goldSeries[1].label = 'Au99.99'
+  historySection.append(trendCard({ title: '国际折算价与Au99.99', note: '元/克，同一坐标便于观察差距', series: goldSeries, showRange: true }))
+  const spreadSeries = trendPoints(latestData, ['domestic-international-gold-spread'])
+  spreadSeries[0].label = '国内外价差'
+  historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true }))
   const brandSection = element('section', 'brands-section')
   brandSection.append(sectionHeading('品牌金价', '品类、时间与来源'))
   const brandList = element('div', 'brand-list')
   view.brands.forEach((item) => brandList.append(brandRow(item, true)))
   brandSection.append(brandList)
-  fragment.append(marketSection, brandSection)
+  fragment.append(marketSection, historySection, brandSection)
   return fragment
 }
 
@@ -146,7 +293,17 @@ function renderFuel(view) {
   const fuelGrid = element('div', 'fuel-grid')
   view.fuel.forEach((item) => fuelGrid.append(fuelCard(item, true)))
   fuelSection.append(fuelGrid)
-  fragment.append(fuelSection)
+  const trendSection = element('section', 'trend-section')
+  trendSection.append(sectionHeading('油价调整记录', '按实际生效日期'))
+  const fuelSeries = trendPoints(latestData, ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel'], 30)
+  fuelSeries[0].label = '92号汽油'
+  fuelSeries[1].label = '95号汽油'
+  fuelSeries[2].label = '0号柴油'
+  trendSection.append(trendCard({ title: '广东油价调价趋势', note: '元/升，每个点为一次实际调价，展示近30天', series: fuelSeries, step: true, rangeDays: 30 }))
+  const movements = element('div', 'fuel-movements')
+  fuelSeries.forEach((item) => movements.append(element('p', '', `${item.label}：${fuelMovement(item)}`)))
+  trendSection.append(movements)
+  fragment.append(fuelSection, trendSection)
   return fragment
 }
 

@@ -77,6 +77,7 @@ test('历史按30分钟、品牌日期和油价生效时间去重', async () => 
   const second = await persistSnapshot(snapshot('2026-08-24T08:20:00.000Z'), storePath)
   const third = await persistSnapshot(snapshot('2026-08-24T08:31:00.000Z'), storePath)
   assert.equal(getHistory(third.store, 'xau-usd').length, 2)
+  assert.equal(getHistory(third.store, 'au9999').length, 2)
   assert.equal(getHistory(third.store, 'brand-gold-chow-sang-sang').length, 1)
   assert.equal(getHistory(third.store, 'guangdong-fuel-92').length, 1)
   assert.equal(buildDisplaySnapshot(first.liveSnapshot, second.store).observations[0].displayStatus, 'current')

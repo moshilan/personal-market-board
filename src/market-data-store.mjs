@@ -160,7 +160,7 @@ function shouldAppendHistory(history, observation) {
   if (observation.metadata.effectiveFrom) {
     return !assetHistory.some((item) => item.metadata.effectiveFrom === observation.metadata.effectiveFrom)
   }
-  if (observation.metadata.quoteDate) {
+  if (observation.assetId.startsWith('brand-') && observation.metadata.quoteDate) {
     return !assetHistory.some((item) => item.metadata.quoteDate === observation.metadata.quoteDate)
   }
   const latest = assetHistory.at(-1)

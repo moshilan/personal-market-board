@@ -2,8 +2,8 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import { buildDisplaySnapshot, readStore } from '../src/market-data-store.mjs'
-import { buildMarketViews } from '../src/home-view-model.mjs'
+import { readStore } from '../src/market-data-store.mjs'
+import { buildDashboardResponse } from '../src/dashboard-data.mjs'
 
 const directory = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(directory, '..')
@@ -21,9 +21,7 @@ const staticFiles = {
 
 async function homeResponse() {
   const store = await readStore(storePath)
-  const liveSnapshot = store.latestAttempt ?? { collectedAt: null, observations: [] }
-  const displaySnapshot = buildDisplaySnapshot(liveSnapshot, store)
-  return { collectedAt: displaySnapshot.collectedAt, views: buildMarketViews(displaySnapshot) }
+  return buildDashboardResponse(store)
 }
 
 function sendJson(response, statusCode, payload) {

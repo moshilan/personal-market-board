@@ -43,10 +43,14 @@ try {
     assert.deepEqual(consoleErrors, [])
     await page.getByRole('button', { name: '金价' }).click()
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际与国内参考', exact: true }).waitFor())
-    await assert.doesNotReject(() => page.getByText('国际黄金 XAU/USD', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('XAU/USD', { exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText('USD/CNY', { exact: true }).waitFor())
-    await assert.doesNotReject(() => page.getByText('国际黄金人民币折算', { exact: true }).waitFor())
-    await assert.doesNotReject(() => page.getByText('国内外价差', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('国际黄金人民币折算价', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByRole('heading', { name: '国内外价差', exact: true }).first().waitFor())
+    await assert.doesNotReject(() => page.getByRole('heading', { name: '金价趋势', exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有2条真实记录', { exact: true }).waitFor())
+    await page.getByRole('button', { name: '30天', exact: true }).click()
+    assert.equal(await page.getByRole('button', { name: '30天', exact: true }).getAttribute('aria-pressed'), 'true')
     assert.equal(await page.getByText('当前有效', { exact: true }).count() > 0, true)
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
@@ -56,7 +60,9 @@ try {
     }), true, '金价页最后一个品牌不应被底部导航遮挡')
     await page.getByRole('button', { name: '油价' }).click()
     await assert.doesNotReject(() => page.getByRole('heading', { name: '广东油价', exact: true, level: 2 }).waitFor())
-    assert.equal(await page.getByText('0号柴油', { exact: true }).count(), 1)
+    assert.equal(await page.getByRole('heading', { name: '0号柴油', exact: true }).count(), 1)
+    await assert.doesNotReject(() => page.getByRole('heading', { name: '油价调整记录', exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有3条真实记录', { exact: true }).waitFor())
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
       scroller.scrollTop = scroller.scrollHeight
