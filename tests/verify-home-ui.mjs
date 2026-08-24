@@ -26,6 +26,11 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.deepEqual(consoleErrors, [])
     await page.screenshot({ path: resolve(outputDirectory, `home-${width}.png`), fullPage: true })
+    await page.route('**/api/home', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }))
+    await page.getByRole('button', { name: '刷新显示' }).click()
+    await page.getByText('未能读取本地展示数据').waitFor()
+    assert.equal(await page.getByRole('heading', { name: '黄金', exact: true }).count(), 1)
+    await page.screenshot({ path: resolve(outputDirectory, `home-${width}-read-failure.png`), fullPage: true })
     await page.close()
   }
 } finally {

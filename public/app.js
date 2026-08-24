@@ -2,13 +2,20 @@ const app = document.querySelector('#app')
 const readingNote = document.querySelector('#reading-note')
 const refreshButton = document.querySelector('.display-refresh')
 const formatter = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+let hasRendered = false
 
 function dateTime(value) {
   if (!value) return '暂无行情时间'
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value.replaceAll('-', '.')
+  if (/^\d{4}-(\d{2})-(\d{2})$/.test(value)) {
+    const [, month, day] = value.match(/^\d{4}-(\d{2})-(\d{2})$/)
+    return `${Number(month)}月${Number(day)}日`
+  }
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Shanghai' }).format(date)
+  const fields = Object.fromEntries(new Intl.DateTimeFormat('zh-CN', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Shanghai',
+  }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  return `${fields.month}月${fields.day}日 ${fields.hour}:${fields.minute}`
 }
 
 function statusText(item) {
@@ -34,7 +41,7 @@ function element(tag, className, text) {
 function statusLine(item) {
   const line = element('p', 'quote-meta')
   const status = element('span', `status status-${item.displayStatus}`, statusText(item))
-  const time = element('span', '', item.available ? dateTime(item.observedAt) : item.reason || '暂无可靠数据')
+  const time = element('span', '', item.available ? `行情：${dateTime(item.observedAt)}` : item.reason || '暂无可靠数据')
   line.append(status, time)
   return line
 }
@@ -92,6 +99,8 @@ function render(data) {
 
   const footer = element('footer', 'page-footer', '只展示已保存的本地行情记录')
   app.append(goldSection, brandsSection, fuelSection, footer)
+  app.setAttribute('aria-busy', 'false')
+  hasRendered = true
 }
 
 async function loadDisplay() {
@@ -106,7 +115,10 @@ async function loadDisplay() {
     render(data)
     readingNote.textContent = '已重新读取本地展示数据'
   } catch {
-    app.replaceChildren(element('p', 'load-error', '本地展示数据暂时无法读取'))
+    if (!hasRendered) {
+      app.replaceChildren(element('p', 'load-error', '暂时无法读取数据'))
+      app.setAttribute('aria-busy', 'false')
+    }
     readingNote.textContent = '未能读取本地展示数据'
   } finally {
     refreshButton.disabled = false
