@@ -8,6 +8,7 @@ const formatter = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, max
 let hasRendered = false
 let activeView = 'home'
 let latestData = null
+let readingNoteTimer = null
 
 function dateTime(value) {
   if (!value) return '暂无行情时间'
@@ -19,7 +20,7 @@ function dateTime(value) {
   return `${fields.month}月${fields.day}日 ${fields.hour}:${fields.minute}`
 }
 
-function statusText(item) { return item.displayStatus === 'cached' ? '缓存数据' : item.available ? '当前有效' : '不可用' }
+function statusText(item, compact = false) { return item.displayStatus === 'cached' ? compact ? '缓存' : '缓存数据' : item.available ? '当前有效' : '不可用' }
 
 function quoteValue(item, unitLabel) {
   if (!item.available) return '暂无可靠数据'
@@ -34,9 +35,10 @@ function element(tag, className, text) {
   return node
 }
 
-function statusLine(item, timeLabel = '行情时间', timeValue = item.observedAt) {
+function statusLine(item, timeLabel = '行情时间', timeValue = item.observedAt, { showCurrentStatus = true, compactStatus = false } = {}) {
   const line = element('p', 'quote-meta')
-  line.append(element('span', `status status-${item.displayStatus}`, statusText(item)), element('span', '', item.available ? `${timeLabel}：${dateTime(timeValue)}` : item.reason || '暂未取得可靠数据'))
+  if (showCurrentStatus || item.displayStatus !== 'current' || !item.available) line.append(element('span', `status status-${item.displayStatus}`, statusText(item, compactStatus)))
+  line.append(element('span', '', item.available ? `${timeLabel}：${dateTime(timeValue)}` : item.reason || '暂未取得可靠数据'))
   return line
 }
 
@@ -48,13 +50,13 @@ function sectionHeading(title, note) {
   return heading
 }
 
-function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt } = {}) {
+function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = true, compactStatus = false } = {}) {
   const card = element('article', `quote-card ${className}`)
   const heading = element('div', 'quote-heading')
   heading.append(element('h3', '', item.label), element('span', 'unit', unitLabel))
   card.append(heading, element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
   if (item.assetId === 'domestic-international-gold-spread' && item.available) card.append(element('p', 'spread-percent', Number.isFinite(item.percentage) ? `较国际折算价 ${item.percentage >= 0 ? '+' : ''}${formatter.format(item.percentage)}%` : '百分比不可用'))
-  card.append(statusLine(item, timeLabel, timeValue))
+  card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus, compactStatus }))
   if (source) card.append(sourceLine(item))
   return card
 }
@@ -75,7 +77,32 @@ function fuelCard(item, detailed = false) {
     unitLabel: '元/升', source: detailed,
     timeLabel: hasEffectiveTime ? '生效时间' : '行情时间',
     timeValue: hasEffectiveTime ? item.effectiveAt : item.observedAt,
+    showCurrentStatus: detailed,
+    compactStatus: !detailed,
   })
+}
+
+function brandSummaryItem(item) {
+  const itemNode = element('article', 'brand-summary-item')
+  const heading = element('div', 'brand-summary-heading')
+  heading.append(element('h3', '', item.label))
+  if (item.displayStatus !== 'current' || !item.available) heading.append(element('span', `status status-${item.displayStatus}`, statusText(item, true)))
+  itemNode.append(heading, element('strong', item.available ? '' : 'unavailable-value', quoteValue(item, '元/克')))
+  return itemNode
+}
+
+function brandSummary(view) {
+  const section = element('section', 'brands-section')
+  section.append(sectionHeading('品牌金价', '足金饰品，元/克'))
+  const summary = element('div', 'brand-summary')
+  view.brands.forEach((item) => summary.append(brandSummaryItem(item)))
+  const time = view.brands.find((item) => item.available)?.observedAt
+  const meta = element('p', 'brand-summary-meta', time ? `报价时间：${dateTime(time)}` : '报价时间：暂无可靠数据')
+  const detailButton = element('button', 'brand-detail-link', '查看品牌详情')
+  detailButton.type = 'button'
+  detailButton.addEventListener('click', () => selectView('gold', true))
+  section.append(summary, meta, detailButton)
+  return section
 }
 
 function renderHome(view) {
@@ -83,21 +110,14 @@ function renderHome(view) {
   const goldSection = element('section', 'summary-section')
   goldSection.append(sectionHeading('金价摘要', '国内参考，元/克'))
   const goldGrid = element('div', 'gold-grid')
-  view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : '')))
+  view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : '', { showCurrentStatus: false, compactStatus: true })))
   goldSection.append(goldGrid)
-  const xau = element('article', 'reference-row')
-  xau.append(element('span', '', view.xauUsd.label), element('strong', '', quoteValue(view.xauUsd, view.xauUsd.unitLabel)), statusLine(view.xauUsd))
   const fuelSection = element('section', 'fuel-section')
   fuelSection.append(sectionHeading('油价摘要', '广东官方最高零售价'))
   const fuelGrid = element('div', 'fuel-grid')
   view.fuel.forEach((item) => fuelGrid.append(fuelCard(item)))
   fuelSection.append(fuelGrid)
-  const brandSection = element('section', 'brands-section')
-  brandSection.append(sectionHeading('品牌金价', '足金饰品，元/克'))
-  const brandList = element('div', 'brand-list')
-  view.brands.forEach((item) => brandList.append(brandRow(item, false)))
-  brandSection.append(brandList)
-  fragment.append(goldSection, fuelSection, xau, brandSection)
+  fragment.append(goldSection, brandSummary(view), fuelSection)
   return fragment
 }
 
@@ -149,19 +169,26 @@ function selectView(viewName, focus = false) {
   if (focus) { window.scrollTo({ top: 0, behavior: 'auto' }); pageTitle.focus({ preventScroll: true }) }
 }
 
+function setReadingNote(message, duration = 0) {
+  if (readingNoteTimer) clearTimeout(readingNoteTimer)
+  readingNote.textContent = message
+  readingNote.hidden = false
+  if (duration) readingNoteTimer = setTimeout(() => { readingNote.hidden = true }, duration)
+}
+
 async function loadDisplay() {
   refreshButton.disabled = true
   refreshButton.setAttribute('aria-busy', 'true')
   refreshButton.textContent = '正在读取'
-  readingNote.textContent = '正在读取本地展示数据'
+  setReadingNote('正在读取本地展示数据')
   try {
     const response = await fetch('/api/home', { cache: 'no-store' })
     if (!response.ok) throw new Error('读取失败')
     render(await response.json())
-    readingNote.textContent = '已重新读取本地展示数据'
+    setReadingNote('已重新读取本地展示数据', 2200)
   } catch {
     if (!hasRendered) { app.replaceChildren(element('p', 'load-error', '暂时无法读取数据')); app.setAttribute('aria-busy', 'false') }
-    readingNote.textContent = '未能读取本地展示数据'
+    setReadingNote('未能读取本地展示数据')
   } finally {
     refreshButton.disabled = false
     refreshButton.removeAttribute('aria-busy')
