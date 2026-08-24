@@ -63,6 +63,8 @@ section { margin-top: 31px; }
 .fuel-secondary .quote-meta { grid-column: 1 / -1; margin-top: 0; padding-top: 0; }
 .page-footer { margin-top: 34px; color: #71807a; font-size: 11px; text-align: center; }
 .load-error { margin: 40px 0; padding: 18px; color: #7a4b42; border-radius: 14px; background: #f4e2dd; text-align: center; }
+.launch-note { margin: 40px 0; padding: 20px; border: 1px solid #d9d8cb; border-radius: 16px; background: #fffdf7; }
+.launch-note p { margin-top: 9px; color: #61736d; font-size: 14px; line-height: 1.6; }
 .loading-placeholder { display: grid; gap: 10px; }
 .loading-placeholder div { min-height: 136px; border: 1px solid #e4e1d7; border-radius: 16px; background: #ebe9df; }
 .loading-placeholder div:first-child { min-height: 174px; }

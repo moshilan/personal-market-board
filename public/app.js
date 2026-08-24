@@ -151,6 +151,14 @@ function selectView(viewName, focus = false) {
 }
 
 async function loadDisplay() {
+  if (location.protocol === 'file:') {
+    const launchNote = element('section', 'launch-note')
+    launchNote.append(element('h2', '', '请从本地服务打开此看板'), element('p', '', '双击项目根目录的「启动看板.cmd」，即可读取已保存的行情数据。'))
+    app.replaceChildren(launchNote)
+    app.setAttribute('aria-busy', 'false')
+    readingNote.textContent = '当前是直接打开的文件，无法读取本地行情数据'
+    return
+  }
   refreshButton.disabled = true
   refreshButton.setAttribute('aria-busy', 'true')
   refreshButton.textContent = '正在读取'
@@ -172,5 +180,5 @@ async function loadDisplay() {
 
 navigationButtons.forEach((button) => button.addEventListener('click', () => selectView(button.dataset.view, true)))
 refreshButton.addEventListener('click', loadDisplay)
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js')
 loadDisplay()
