@@ -2,7 +2,8 @@ const OUNCE_TO_GRAM = 31.1034768
 const TIME_ZONE = 'Asia/Shanghai'
 
 const SOURCES = {
-  xauUsd: 'https://xaus.com/api/v1/spot',
+  xauUsdPrimary: 'https://xaus.com/api/v1/spot',
+  xauUsdBackup: 'https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT&include=sources',
   usdCny: 'https://www.currencyexchangetool.com/api/v1/convert?amount=1&from=USD&to=CNY',
   au9999: 'https://www.sge.com.cn/h5_sjzx/yshq',
   chowSangSang: 'https://cn.chowsangsang.com/gold-info',
@@ -50,27 +51,62 @@ function parseNumber(value) {
   return number
 }
 
-async function collectXauUsd(collectedAt) {
-  try {
-    const payload = await getJson(SOURCES.xauUsd)
-    const observedAt = new Date(payload.price_as_of)
-    if (Number.isNaN(observedAt.getTime())) throw new Error('缺少有效来源时间')
-    if (payload.stale === true || payload.data_state?.status !== 'fresh') throw new Error('来源标记为非新鲜数据')
-    if (shanghaiDate(observedAt) !== shanghaiDate(collectedAt)) throw new Error('来源时间不属于当天')
+async function collectXauUsdFromXaus(collectedAt) {
+  const payload = await getJson(SOURCES.xauUsdPrimary)
+  const observedAt = new Date(payload.price_as_of)
+  if (Number.isNaN(observedAt.getTime())) throw new Error('缺少有效来源时间')
+  if (payload.stale === true || payload.data_state?.status !== 'fresh') throw new Error('来源标记为非新鲜数据')
+  if (shanghaiDate(observedAt) !== shanghaiDate(collectedAt)) throw new Error('来源时间不属于当天')
 
-    return {
-      name: 'XAU/USD',
-      available: true,
-      value: parseNumber(payload.xau?.price),
-      currency: 'USD',
-      unit: 'troy_ounce',
-      observedAt: observedAt.toISOString(),
-      collectedAt: collectedAt.toISOString(),
-      sourceUrl: SOURCES.xauUsd,
-      sourceName: payload.price_source ?? 'XAUS',
+  return {
+    name: 'XAU/USD',
+    available: true,
+    value: parseNumber(payload.xau?.price),
+    currency: 'USD',
+    unit: 'troy_ounce',
+    observedAt: observedAt.toISOString(),
+    collectedAt: collectedAt.toISOString(),
+    sourceUrl: SOURCES.xauUsdPrimary,
+    sourceName: payload.price_source ?? 'XAUS',
+  }
+}
+
+async function collectXauUsdFromGoldprice(collectedAt) {
+  const payload = await getJson(SOURCES.xauUsdBackup)
+  const quote = payload.symbols?.find((item) => item.symbol === 'XAU' && item.quote_currency === 'USD' && item.contract_type === 'spot')
+  const source = quote?.sources?.find((item) => item.informational !== true)
+  const observedAt = new Date(source?.source_timestamp ?? quote?.computed_at)
+  if (!quote || !source || Number.isNaN(observedAt.getTime())) throw new Error('缺少有效现货报价或来源时间')
+  if (quote.is_stale === true || source.is_stale === true) throw new Error('来源标记为非新鲜数据')
+  if (shanghaiDate(observedAt) !== shanghaiDate(collectedAt)) throw new Error('来源时间不属于当天')
+
+  return {
+    name: 'XAU/USD',
+    available: true,
+    value: parseNumber(quote.price),
+    currency: 'USD',
+    unit: 'troy_ounce',
+    observedAt: observedAt.toISOString(),
+    collectedAt: collectedAt.toISOString(),
+    sourceUrl: SOURCES.xauUsdBackup,
+    sourceName: `GoldPrice.dev / ${source.display_name ?? source.source}`,
+  }
+}
+
+async function collectXauUsd(collectedAt, options = {}) {
+  try {
+    if (options.simulatePrimaryFailure) throw new Error('验证模拟：XAUS不可用')
+    return await collectXauUsdFromXaus(collectedAt)
+  } catch (primaryError) {
+    try {
+      if (options.simulateBackupFailure) throw new Error('验证模拟：备用源不可用')
+      return await collectXauUsdFromGoldprice(collectedAt)
+    } catch (backupError) {
+      return {
+        ...unavailable('XAU/USD', SOURCES.xauUsdPrimary, collectedAt.toISOString(), `XAUS失败：${primaryError.message}；备用源失败：${backupError.message}`),
+        backupSourceUrl: SOURCES.xauUsdBackup,
+      }
     }
-  } catch (error) {
-    return unavailable('XAU/USD', SOURCES.xauUsd, collectedAt.toISOString(), error.message)
   }
 }
 
@@ -250,8 +286,12 @@ function deriveSpread(au9999, internationalGoldCny, collectedAt) {
 }
 
 const collectedAt = now()
+const xauOptions = {
+  simulatePrimaryFailure: process.argv.includes('--simulate-xaus-failure'),
+  simulateBackupFailure: process.argv.includes('--simulate-xau-backup-failure'),
+}
 const [xauUsd, usdCny, au9999, brands, guangdongFuel] = await Promise.all([
-  collectXauUsd(collectedAt),
+  collectXauUsd(collectedAt, xauOptions),
   collectUsdCny(collectedAt),
   collectAu9999(collectedAt),
   collectBrands(collectedAt).catch((error) => [unavailable('品牌金价', 'brands', collectedAt.toISOString(), error.message)]),

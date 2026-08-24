@@ -90,3 +90,11 @@
 - 2026-08-24 16:10的真实采集结果：XAU/USD为4639.5美元/金衡盎司，USD/CNY为6.723，Au99.99为1003.9元/克，国际黄金人民币折算价为1002.825462元/克，国内外价差为1.074538元/克、0.107151%。
 - 同次采集成功读取周生生1390元/克、周大福1393元/克、六福珠宝1391元/克、老凤祥1388元/克，以及广东92号汽油7.80元/升、95号汽油8.45元/升、0号柴油7.45元/升。
 - 98号汽油输出为不可用。脚本不推算、不回退旧价；USD/CNY超时或跨日时，折算金价和价差自动不可用。
+
+### XAU/USD主备回退验证
+
+- 主源保持为XAUS `https://xaus.com/api/v1/spot`。备用源采用GoldPrice.dev的无凭证公开端点：`https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT&include=sources`。备用响应包含XAU/USD现货价、`source_timestamp`、`computed_at`及两个`is_stale`标记；仅在来源时间属于中国当日且两个标记均非陈旧时使用。
+- 2026-08-24 16:19真实采集时，XAUS返回4636.5美元/金衡盎司，输出保留实际`sourceUrl=https://xaus.com/api/v1/spot`。
+- 以`--simulate-xaus-failure`模拟主源请求失败后，脚本真实请求备用源，成功返回4636.3美元/金衡盎司、来源时间2026-08-24 16:18:05+08:00，并正常计算人民币折算金价与国内外价差；输出的`sourceUrl`切换为GoldPrice.dev端点。
+- 以`--simulate-xaus-failure --simulate-xau-backup-failure`验证双源不可用时，XAU/USD、国际黄金人民币折算价和国内外价差均输出`available: false`，不读取旧值、不估算。
+- 该回退只覆盖实时读取失败或超时；未引入缓存。模拟参数仅用于验证该失败分支，常规运行不启用。
