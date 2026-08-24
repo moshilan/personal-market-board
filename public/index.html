@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f2e9" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="description" content="个人与家人日常查看的金价和广东油价" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+    <title>日常行情</title>
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="topbar">
+        <div>
+          <p class="kicker">个人行情看板</p>
+          <h1>日常行情</h1>
+        </div>
+        <button class="display-refresh" type="button" aria-label="刷新显示">刷新显示</button>
+      </header>
+      <p class="reading-note" id="reading-note">正在读取本地展示数据</p>
+      <div id="app" aria-live="polite"></div>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

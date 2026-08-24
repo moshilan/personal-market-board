@@ -1,6 +1,6 @@
 # Personal Market Board
 
-面向个人及家人手机日常使用的零付费PWA行情看板。本阶段仅完成项目初始化，不包含业务代码、数据抓取、接口调用或页面实现。
+面向个人及家人手机日常使用的零付费PWA行情看板。当前已完成核心数据采集、本地缓存与历史，以及首页最小版本。
 
 ## 目标范围
 
@@ -23,15 +23,19 @@
 
 ## 当前状态
 
-`01｜核心数据源与采集`已完成。`02｜数据模型、缓存与历史`已完成最小可用版本：采集输出统一为观察记录，成功记录保存至本地JSON缓存与历史；实时采集失败时，展示层才会返回明确标记为`cached`的最后成功记录。缓存文件为`data/market-data.json`，不纳入Git。
+`01｜核心数据源与采集`、`02｜数据模型、缓存与历史`、`03｜首页与移动端 UI`已完成最小版本。采集输出统一为观察记录，成功记录保存至本地JSON缓存与历史；实时采集失败时，展示层才会返回明确标记为`cached`的最后成功记录。缓存文件为`data/market-data.json`，不纳入Git。
 
 运行采集：`node scripts/collect-v1-data.mjs`
 
-运行本地测试：`node --test tests/market-data-store.test.mjs`
+运行本地测试：`node --test tests/*.test.mjs`
+
+运行首页：先执行`node scripts/collect-v1-data.mjs`写入本地展示数据，再执行`node scripts/serve-dashboard.mjs`，打开`http://localhost:8787`。`刷新显示`只重新读取本地数据，不触发采集。
 
 ## 目录
 
-- `src/`：后续源代码
+- `src/`：数据模型与首页展示模型
+- `public/`：首页静态资源与PWA基础文件
+- `scripts/serve-dashboard.mjs`：本地首页服务
 - `docs/`：需求、数据源与设计文档
 - `tests/`：后续测试代码
 

@@ -34,7 +34,7 @@ function snapshot(collectedAt, { xauAvailable = true } = {}) {
     ? available('国际黄金人民币折算价', 555, collectedAt, { sourceUrl: 'derived', inputs: [{ name: 'XAU/USD' }, { name: 'USD/CNY' }], calculatedAt: collectedAt })
     : unavailable('国际黄金人民币折算价', collectedAt)
   const spread = xauAvailable
-    ? available('国内外价差', 5, collectedAt, { sourceUrl: 'derived', inputs: [{ name: 'Au99.99' }, { name: '国际黄金人民币折算价' }], calculatedAt: collectedAt })
+    ? available('国内外价差', 5, collectedAt, { sourceUrl: 'derived', percentage: 0.9, inputs: [{ name: 'Au99.99' }, { name: '国际黄金人民币折算价' }], calculatedAt: collectedAt })
     : unavailable('国内外价差', collectedAt)
   return {
     collectedAt,
@@ -53,6 +53,7 @@ test('派生记录保留原始记录追溯关系', () => {
   const byAsset = Object.fromEntries(normalized.observations.map((item) => [item.assetId, item]))
   assert.deepEqual(byAsset['international-gold-cny-gram'].derivedFromIds, [byAsset['xau-usd'].id, byAsset['usd-cny'].id])
   assert.deepEqual(byAsset['domestic-international-gold-spread'].derivedFromIds, [byAsset.au9999.id, byAsset['international-gold-cny-gram'].id])
+  assert.equal(byAsset['domestic-international-gold-spread'].percentage, 0.9)
   assert.equal(byAsset['guangdong-fuel-92'].observedAt, '2026-08-14T16:00:00.000Z')
 })
 

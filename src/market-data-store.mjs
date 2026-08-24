@@ -78,6 +78,7 @@ function availableObservation(record, derivedFromIds) {
     label: record.brand ?? record.name ?? record.product,
     available: true,
     value: record.value,
+    percentage: record.percentage ?? null,
     currency: record.currency ?? record.quoteCurrency,
     unit: record.unit ?? (record.baseCurrency ? 'rate' : null),
     observedAt: record.observedAt ?? record.quoteDate ?? record.effectiveFrom ?? record.calculatedAt,

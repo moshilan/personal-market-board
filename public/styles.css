@@ -1,0 +1,56 @@
+:root {
+  color: #182d29;
+  background: #f5f2e9;
+  font-family: ui-rounded, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; background: #f5f2e9; }
+button { font: inherit; }
+.page-shell { width: min(100%, 680px); margin: 0 auto; padding: max(24px, env(safe-area-inset-top)) 16px calc(36px + env(safe-area-inset-bottom)); }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.kicker { margin: 0 0 4px; color: #61736d; font-size: 12px; letter-spacing: .08em; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 31px; letter-spacing: -.06em; }
+h2 { font-size: 21px; letter-spacing: -.04em; }
+h3 { font-size: 15px; }
+.display-refresh { min-height: 44px; padding: 0 15px; color: #245a4f; background: #e7eee7; border: 1px solid #b8cec0; border-radius: 12px; font-weight: 700; }
+.display-refresh:disabled { opacity: .55; }
+.reading-note { margin: 15px 1px 25px; color: #61736d; font-size: 12px; }
+section { margin-top: 31px; }
+.gold-section { margin-top: 0; }
+.section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-heading p { color: #61736d; font-size: 12px; text-align: right; }
+.gold-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.gold-card, .fuel-card, .brand-list { border: 1px solid #d9d8cb; background: #fffdf7; box-shadow: 0 2px 7px rgb(26 54 48 / 4%); }
+.gold-card { min-height: 165px; padding: 15px; border-radius: 17px; display: flex; flex-direction: column; }
+.gold-primary { grid-column: 1 / -1; min-height: 174px; color: #fffbf0; border-color: #1f554a; background: #205c50; }
+.gold-primary .unit, .gold-primary .quote-meta { color: #d4e6d5; }
+.quote-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.unit { color: #61736d; font-size: 11px; white-space: nowrap; }
+.quote-value { display: block; margin-top: 21px; font-size: clamp(25px, 7vw, 35px); letter-spacing: -.07em; line-height: 1; }
+.unavailable-value { color: #89918b; font-size: 21px; letter-spacing: -.03em; }
+.gold-primary .unavailable-value { color: #d4e6d5; }
+.gold-spread { grid-column: 1 / -1; min-height: 138px; }
+.spread-percent { margin-top: 8px; color: #a96f17; font-size: 12px; font-weight: 700; }
+.quote-meta { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-top: auto; padding-top: 12px; color: #61736d; font-size: 11px; }
+.quote-meta > span:last-child { overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.status { flex: none; padding: 3px 6px; border-radius: 99px; font-size: 10px; font-weight: 700; }
+.status-current { color: #247243; background: #e2f2e3; }
+.status-cached { color: #81631b; background: #f5ead0; }
+.status-unavailable { color: #7a4b42; background: #f4e2dd; }
+.brand-list { overflow: hidden; border-radius: 15px; }
+.brand-row { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; padding: 15px; border-bottom: 1px solid #e4e1d7; }
+.brand-row:last-child { border-bottom: 0; }
+.brand-row strong { font-size: 18px; letter-spacing: -.04em; }
+.brand-row .quote-meta { grid-column: 1 / -1; margin-top: 0; padding-top: 0; }
+.fuel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.fuel-card { min-height: 134px; padding: 15px; border-radius: 15px; }
+.fuel-card strong { display: block; margin-top: 17px; font-size: 29px; letter-spacing: -.07em; }
+.fuel-secondary { grid-column: 1 / -1; min-height: auto; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px; padding-block: 13px; background: #f1f2ea; }
+.fuel-secondary strong { margin: 0; font-size: 21px; }
+.fuel-secondary .quote-meta { grid-column: 1 / -1; margin-top: 0; padding-top: 0; }
+.page-footer { margin-top: 34px; color: #71807a; font-size: 11px; text-align: center; }
+.load-error { margin: 40px 0; padding: 18px; color: #7a4b42; border-radius: 14px; background: #f4e2dd; text-align: center; }
+@media (min-width: 540px) { .page-shell { padding-left: 24px; padding-right: 24px; } .gold-grid { gap: 14px; } }
