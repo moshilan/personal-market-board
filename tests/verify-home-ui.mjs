@@ -22,25 +22,31 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '金价摘要', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '品牌金价', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价摘要', exact: true }).waitFor())
-    assert.equal(await page.getByText('XAU/USD', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('国际金价 XAU/USD', { exact: true }).count(), 1)
+    assert.equal(await page.getByText('国际黄金人民币折算', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('国内外价差', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('USD/CNY', { exact: true }).count(), 0)
     assert.equal(await page.getByText('98号汽油').count(), 0)
     assert.equal(await page.getByText('0号柴油', { exact: true }).count(), 0)
     assert.equal(await page.locator('.brand-summary-item').count(), 4)
-    assert.equal(await page.locator('.brand-row').count(), 0)
+    assert.equal(await page.locator('.brand-row, .brand-detail-link').count(), 0)
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
       scroller.scrollTop = scroller.scrollHeight
       const navigationTop = document.querySelector('.bottom-nav').getBoundingClientRect().top
-      const detailBottom = document.querySelector('.brand-detail-link').getBoundingClientRect().bottom
+      const brandBottom = document.querySelector('.brand-summary').getBoundingClientRect().bottom
       const fuelBottom = document.querySelector('.fuel-grid').getBoundingClientRect().bottom
-      return detailBottom <= navigationTop && fuelBottom <= navigationTop
-    }), true, '滚动到页面底部时，品牌详情入口和油价摘要不应被底部导航遮挡')
+      return brandBottom <= navigationTop && fuelBottom <= navigationTop
+    }), true, '滚动到页面底部时，品牌摘要和油价摘要不应被底部导航遮挡')
     assert.deepEqual(consoleErrors, [])
     await page.getByRole('button', { name: '金价' }).click()
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际与国内参考', exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('国际黄金 XAU/USD', { exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText('USD/CNY', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('国际黄金人民币折算', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('国内外价差', { exact: true }).waitFor())
     assert.equal(await page.getByText('当前有效', { exact: true }).count() > 0, true)
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')

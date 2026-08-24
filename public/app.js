@@ -99,19 +99,17 @@ function brandSummary(view) {
   view.brands.forEach((item) => summary.append(brandSummaryItem(item)))
   const time = view.brands.find((item) => item.available)?.observedAt
   const meta = element('p', 'brand-summary-meta', time ? `报价时间：${dateTime(time)}` : '报价时间：暂无可靠数据')
-  const detailButton = element('button', 'brand-detail-link', '查看品牌详情')
-  detailButton.type = 'button'
-  detailButton.addEventListener('click', () => selectView('gold', true))
-  section.append(summary, meta, detailButton)
+  section.append(summary, meta)
   return section
 }
 
 function renderHome(view) {
   const fragment = document.createDocumentFragment()
   const goldSection = element('section', 'summary-section')
-  goldSection.append(sectionHeading('金价摘要', '国内参考，元/克'))
+  goldSection.append(sectionHeading('金价摘要', '国际与国内金价'))
   const goldGrid = element('div', 'gold-grid')
-  view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : '', { showCurrentStatus: false, compactStatus: true })))
+  const homeGold = [{ ...view.xauUsd, label: '国际金价 XAU/USD' }, view.gold.find((item) => item.assetId === 'au9999')]
+  homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item, '', { showCurrentStatus: false, compactStatus: true })))
   goldSection.append(goldGrid)
   const fuelSection = element('section', 'fuel-section')
   fuelSection.append(sectionHeading('油价摘要', '广东官方最高零售价'))

@@ -56,7 +56,6 @@ section { margin-top: 31px; }
 .brand-summary-item strong { display: block; margin-top: 7px; font-size: 18px; letter-spacing: -.05em; white-space: nowrap; }
 .brand-summary-item .unavailable-value { font-size: 13px; white-space: normal; }
 .brand-summary-meta { margin-top: 8px; color: #61736d; font-size: 11px; }
-.brand-detail-link { width: 100%; min-height: 44px; margin-top: 8px; color: #245a4f; border: 1px solid #b8cec0; border-radius: 12px; background: #e7eee7; font-weight: 700; }
 .product-line, .source-line { margin-top: 4px; color: #61736d; font-size: 11px; }
 .reference-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-top: 10px; padding: 14px 15px; border: 1px solid #d9d8cb; border-radius: 15px; background: #f1f2ea; font-size: 13px; }
 .reference-row strong { font-size: 17px; letter-spacing: -.04em; }
@@ -80,5 +79,5 @@ section { margin-top: 31px; }
 .bottom-nav button { display: grid; place-items: center; gap: 2px; min-height: 48px; color: #61736d; border: 0; border-top: 2px solid transparent; background: transparent; font-weight: 700; font-size: 12px; }
 .bottom-nav button span { font-size: 17px; line-height: 1; }
 .bottom-nav button[aria-current="page"] { color: #245a4f; border-top-color: #a96f17; }
-.bottom-nav button:focus-visible, .display-refresh:focus-visible, .brand-detail-link:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
+.bottom-nav button:focus-visible, .display-refresh:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
 @media (min-width: 540px) { .page-shell { padding-left: 24px; padding-right: 24px; } .gold-grid { gap: 14px; } }
