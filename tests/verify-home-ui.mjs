@@ -30,7 +30,8 @@ try {
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.equal(await page.evaluate(() => {
-      window.scrollTo(0, document.documentElement.scrollHeight)
+      const scroller = document.querySelector('.page-shell')
+      scroller.scrollTop = scroller.scrollHeight
       const navigationTop = document.querySelector('.bottom-nav').getBoundingClientRect().top
       const detailBottom = document.querySelector('.brand-detail-link').getBoundingClientRect().bottom
       const fuelBottom = document.querySelector('.fuel-grid').getBoundingClientRect().bottom
@@ -41,9 +42,21 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际与国内参考', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText('USD/CNY', { exact: true }).waitFor())
     assert.equal(await page.getByText('当前有效', { exact: true }).count() > 0, true)
+    assert.equal(await page.evaluate(() => {
+      const scroller = document.querySelector('.page-shell')
+      scroller.scrollTop = scroller.scrollHeight
+      const navigationTop = document.querySelector('.bottom-nav').getBoundingClientRect().top
+      return document.querySelector('.brand-row:last-child').getBoundingClientRect().bottom <= navigationTop
+    }), true, '金价页最后一个品牌不应被底部导航遮挡')
     await page.getByRole('button', { name: '油价' }).click()
     await assert.doesNotReject(() => page.getByRole('heading', { name: '广东油价', exact: true, level: 2 }).waitFor())
     assert.equal(await page.getByText('0号柴油', { exact: true }).count(), 1)
+    assert.equal(await page.evaluate(() => {
+      const scroller = document.querySelector('.page-shell')
+      scroller.scrollTop = scroller.scrollHeight
+      const navigationTop = document.querySelector('.bottom-nav').getBoundingClientRect().top
+      return document.querySelector('.fuel-card:last-child').getBoundingClientRect().bottom <= navigationTop
+    }), true, '油价页最后一个油品不应被底部导航遮挡')
     await page.getByRole('button', { name: '首页' }).click()
     await page.screenshot({ path: resolve(outputDirectory, `home-${width}.png`), fullPage: true })
     await page.route('**/api/home', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{}' }))

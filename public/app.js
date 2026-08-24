@@ -3,6 +3,7 @@ const readingNote = document.querySelector('#reading-note')
 const refreshButton = document.querySelector('.display-refresh')
 const pageTitle = document.querySelector('#page-title')
 const pageKicker = document.querySelector('#page-kicker')
+const pageShell = document.querySelector('.page-shell')
 const navigationButtons = [...document.querySelectorAll('[data-view]')]
 const formatter = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 let hasRendered = false
@@ -166,7 +167,7 @@ function selectView(viewName, focus = false) {
   pageKicker.textContent = titles[viewName][1]
   navigationButtons.forEach((button) => button.toggleAttribute('aria-current', button.dataset.view === viewName))
   if (latestData) render(latestData)
-  if (focus) { window.scrollTo({ top: 0, behavior: 'auto' }); pageTitle.focus({ preventScroll: true }) }
+  if (focus) { pageShell.scrollTo({ top: 0, behavior: 'auto' }); pageTitle.focus({ preventScroll: true }) }
 }
 
 function setReadingNote(message, duration = 0) {
