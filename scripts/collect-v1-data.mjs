@@ -1,5 +1,11 @@
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+import { persistSnapshot } from '../src/market-data-store.mjs'
+
 const OUNCE_TO_GRAM = 31.1034768
 const TIME_ZONE = 'Asia/Shanghai'
+const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url))
+const DEFAULT_STORE_PATH = resolve(SCRIPT_DIRECTORY, '../data/market-data.json')
 
 const SOURCES = {
   xauUsdPrimary: 'https://xaus.com/api/v1/spot',
@@ -257,6 +263,8 @@ function deriveInternationalGoldCny(xauUsd, usdCny, collectedAt) {
     value: xauUsd.value * usdCny.value / OUNCE_TO_GRAM,
     currency: 'CNY',
     unit: 'gram',
+    sourceUrl: 'derived',
+    sourceName: '公式计算',
     calculatedAt: collectedAt.toISOString(),
     inputs: [
       { name: xauUsd.name, sourceUrl: xauUsd.sourceUrl, observedAt: xauUsd.observedAt },
@@ -277,6 +285,8 @@ function deriveSpread(au9999, internationalGoldCny, collectedAt) {
     percentage: value / internationalGoldCny.value * 100,
     currency: 'CNY',
     unit: 'gram',
+    sourceUrl: 'derived',
+    sourceName: '公式计算',
     calculatedAt: collectedAt.toISOString(),
     inputs: [
       { name: au9999.name, sourceUrl: au9999.sourceUrl, observedAt: au9999.observedAt },
@@ -286,18 +296,36 @@ function deriveSpread(au9999, internationalGoldCny, collectedAt) {
 }
 
 const collectedAt = now()
+const simulateCollectionFailure = process.argv.includes('--simulate-collection-failure')
 const xauOptions = {
   simulatePrimaryFailure: process.argv.includes('--simulate-xaus-failure'),
   simulateBackupFailure: process.argv.includes('--simulate-xau-backup-failure'),
 }
-const [xauUsd, usdCny, au9999, brands, guangdongFuel] = await Promise.all([
-  collectXauUsd(collectedAt, xauOptions),
-  collectUsdCny(collectedAt),
-  collectAu9999(collectedAt),
-  collectBrands(collectedAt).catch((error) => [unavailable('品牌金价', 'brands', collectedAt.toISOString(), error.message)]),
-  collectGuangdongFuel(collectedAt),
-])
+const unavailableBrands = (reason) => ['周生生', '周大福', '六福珠宝', '老凤祥'].map((brand) => ({
+  ...unavailable(brand, brand === '周生生' ? SOURCES.chowSangSang : SOURCES.brands[brand], collectedAt.toISOString(), reason),
+  brand,
+}))
+const unavailableFuel = (reason) => ['92号汽油', '95号汽油', '0号柴油', '98号汽油'].map((product) => (
+  unavailable(product, SOURCES.guangdongFuel, collectedAt.toISOString(), reason)
+))
+const [xauUsd, usdCny, au9999, brands, guangdongFuel] = simulateCollectionFailure
+  ? [
+      unavailable('XAU/USD', SOURCES.xauUsdPrimary, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
+      unavailable('USD/CNY', SOURCES.usdCny, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
+      unavailable('Au99.99', SOURCES.au9999, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
+      unavailableBrands('验证模拟：全部实时采集失败'),
+      unavailableFuel('验证模拟：全部实时采集失败'),
+    ]
+  : await Promise.all([
+      collectXauUsd(collectedAt, xauOptions),
+      collectUsdCny(collectedAt),
+      collectAu9999(collectedAt),
+      collectBrands(collectedAt).catch((error) => unavailableBrands(error.message)),
+      collectGuangdongFuel(collectedAt),
+    ])
 const internationalGoldCny = deriveInternationalGoldCny(xauUsd, usdCny, collectedAt)
 const spread = deriveSpread(au9999, internationalGoldCny, collectedAt)
 
-console.log(JSON.stringify({ collectedAt: collectedAt.toISOString(), xauUsd, usdCny, au9999, internationalGoldCny, spread, brands, guangdongFuel }, null, 2))
+const rawSnapshot = { collectedAt: collectedAt.toISOString(), xauUsd, usdCny, au9999, internationalGoldCny, spread, brands, guangdongFuel }
+const result = await persistSnapshot(rawSnapshot, DEFAULT_STORE_PATH)
+console.log(JSON.stringify({ liveSnapshot: result.liveSnapshot, displaySnapshot: result.displaySnapshot }, null, 2))

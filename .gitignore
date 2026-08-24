@@ -13,6 +13,10 @@ build/
 .env.*
 !.env.example
 
+# Local market cache and history
+data/*.json
+data/*.tmp
+
 # IDE and OS files
 .vscode/
 .idea/
