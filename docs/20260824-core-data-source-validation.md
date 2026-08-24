@@ -79,10 +79,17 @@
 - 当前有效公告按`effectiveFrom`、即公告写明的生效时刻判定；下一条已生效公告出现后替换。
 - 保存公告URL、发布日期、采集时间、生效时刻及92、95、98号汽油和0号柴油的最高零售价。
 
-## 最少的下一步
+## 阶段结论
 
-1. 在正式采集器中实现已确认来源的读取、日期检查和来源时间保存。
-2. 为广东油价补充98号的可靠公告来源；补不到就维持不可用。
+`01｜核心数据源与采集`已完成，最终Git checkpoint为`22323be feat: add xau usd fallback source`。`02｜数据模型、缓存与历史`尚未开始。
+
+| 数据 | 最终主源 | 备用或失败策略 |
+|---|---|---|
+| XAU/USD | XAUS `https://xaus.com/api/v1/spot` | XAUS失败、超时或非当天新鲜数据时，使用GoldPrice.dev `https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT&include=sources`；双源失败则不可用 |
+| USD/CNY | Currency Exchange Tool | 当天且距采集不超过2小时才可用；Frankfurter只作日频参考，不用于实时回退计算 |
+| Au99.99 | 上海黄金交易所延时行情 | 当天行情字段缺失或跨日则不可用 |
+| 品牌金价 | 周生生中国内地官网；周大福、六福珠宝、老凤祥水贝金价网 | 当天品牌、品类、报价和时间不完整则不可用，不回退旧价 |
+| 广东油价 | 广东省发展改革委最新有效公告 | 只解析92、95和0号柴油；98号保持不可用，不推算 |
 
 ## V1最小实现状态
 
@@ -98,3 +105,4 @@
 - 以`--simulate-xaus-failure`模拟主源请求失败后，脚本真实请求备用源，成功返回4636.3美元/金衡盎司、来源时间2026-08-24 16:18:05+08:00，并正常计算人民币折算金价与国内外价差；输出的`sourceUrl`切换为GoldPrice.dev端点。
 - 以`--simulate-xaus-failure --simulate-xau-backup-failure`验证双源不可用时，XAU/USD、国际黄金人民币折算价和国内外价差均输出`available: false`，不读取旧值、不估算。
 - 该回退只覆盖实时读取失败或超时；未引入缓存。模拟参数仅用于验证该失败分支，常规运行不启用。
+- 本次主备回退实现已纳入最终checkpoint：`22323be feat: add xau usd fallback source`。

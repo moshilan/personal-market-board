@@ -28,3 +28,10 @@
 - 为XAU/USD增加GoldPrice.dev免费公开备用源，仅在XAUS请求失败、超时或不满足当天新鲜度条件时启用
 - 真实验证XAUS主源成功、主源失败时备用源接管，以及双源失败时XAU/USD和两个派生字段正确标记不可用
 - 未修改其余数据源，未引入缓存
+
+## 2026-08-24 16:25
+
+- 完成`01｜核心数据源与采集`：XAU/USD最终主源为XAUS，备用源为GoldPrice.dev；双源失败时XAU/USD及关联派生字段不可用
+- USD/CNY、Au99.99、品牌金价和广东油价的最终来源与失效规则已记录在验证报告
+- 创建最终Git checkpoint：`22323be feat: add xau usd fallback source`
+- `02｜数据模型、缓存与历史`未开始
