@@ -22,6 +22,15 @@ await mkdir(outputDirectory, { recursive: true })
 const chromePath = process.env.CHROME_EXECUTABLE_PATH
   ?? (process.env.ProgramFiles ? resolve(process.env.ProgramFiles, 'Google', 'Chrome', 'Application', 'chrome.exe') : undefined)
 const browser = await chromium.launch({ headless: true, ...(chromePath && existsSync(chromePath) ? { executablePath: chromePath } : {}) })
+
+async function assertBottomNavigation(page) {
+  assert.equal(await page.evaluate(() => {
+    const navigation = document.querySelector('.bottom-nav').getBoundingClientRect()
+    const shell = document.querySelector('.page-shell').getBoundingClientRect()
+    return Math.abs(navigation.bottom - window.innerHeight) < 1 && Math.abs(shell.bottom - navigation.top) < 1
+  }), true, '底部导航应贴住视口底部，滚动区域应止于导航上方')
+}
+
 try {
   for (const width of [360, 393]) {
     const page = await browser.newPage({ viewport: { width, height: 844 }, deviceScaleFactor: 1 })
@@ -33,6 +42,8 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '金价摘要', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '品牌金价', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价摘要', exact: true }).waitFor())
+    assert.equal(await page.locator('#page-kicker').isHidden(), true)
+    await assertBottomNavigation(page)
     assert.equal(await page.getByRole('heading', { name: '国际金价', exact: true }).count(), 1)
     assert.equal(await page.getByRole('heading', { name: '国内金价', exact: true }).count(), 1)
     assert.equal(await page.getByText('XAU/USD', { exact: true }).count(), 1)
@@ -41,11 +52,16 @@ try {
     assert.equal(await page.getByText('国内外价差', { exact: true }).count(), 0)
     assert.equal(await page.getByText('USD/CNY', { exact: true }).count(), 0)
     assert.equal(await page.getByText('98号汽油').count(), 0)
-    assert.equal(await page.getByText('0号柴油', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('0号柴油', { exact: true }).count(), 1)
     assert.equal(await page.locator('.brand-summary-item').count(), 4)
+    assert.equal(await page.locator('.brand-summary-meta').count(), 0)
     assert.equal(await page.locator('.brand-row, .brand-detail-link').count(), 0)
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    assert.equal(await page.locator('.fuel-summary').evaluateAll((items) => {
+      const rectangles = items.map((item) => item.getBoundingClientRect())
+      return rectangles.length === 3 && rectangles.every((rectangle) => rectangle.top === rectangles[0].top && rectangle.height === rectangles[0].height)
+    }), true, '首页三张油价卡应同一行且等高')
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
       scroller.scrollTop = scroller.scrollHeight
@@ -65,11 +81,15 @@ try {
     await assert.doesNotReject(() => page.getByText('缓存', { exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText('获取失败', { exact: true }).waitFor())
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
+    assert.equal(await page.locator('.fuel-section .quote-meta').count(), 0)
     await page.unroute('**/api/home.json')
     await page.getByRole('button', { name: '刷新显示' }).click()
     assert.deepEqual(consoleErrors, [])
     await page.getByRole('button', { name: '金价' }).click()
+    assert.equal(await page.getByText('国际、国内与品牌金价', { exact: true }).isVisible(), true)
+    await assertBottomNavigation(page)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '金价参考', exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText(/^数据日期：\d+月\d+日$/).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际金价', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '美元兑人民币', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际金价折算', exact: true }).waitFor())
@@ -80,6 +100,11 @@ try {
     await assert.doesNotReject(() => page.getByText('上金所金价 - 国际折算价', { exact: true }).waitFor())
     assert.equal(await page.locator('.quote-heading h3').evaluateAll((headings) => headings.every((heading) => heading.scrollHeight <= heading.clientHeight)), true, '行情主标题不应在窄卡片内换行')
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国内外价差', exact: true }).first().waitFor())
+    assert.equal(await page.locator('.gold-spread .spread-values').count(), 1)
+    assert.equal(await page.locator('.gold-spread .spread-percent-value').count(), 1)
+    assert.equal(await page.locator('.gold-spread .spread-unit').count(), 1)
+    assert.equal(await page.locator('.gold-spread .spread-context').count(), 1)
+    assert.equal(await page.locator('.gold-spread .spread-heading-note').count(), 1)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '金价趋势', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际与国内金价', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText('历史数据积累中，国际金价折算0条，国内金价1条', { exact: true }).waitFor())
@@ -106,6 +131,14 @@ try {
     await page.unroute('**/api/home.json')
     await page.getByRole('button', { name: '刷新显示' }).click()
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('来源：公式计算', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('来源：上海黄金交易所', { exact: true }).count(), 0)
+    await assert.doesNotReject(() => page.getByText('gold-api.com', { exact: true }).waitFor())
+    assert.equal(await page.locator('.source-line').evaluateAll((items) => items.every((item) => !item.textContent.includes('来源：'))), true)
+    assert.equal(await page.locator('.brand-detail .brand-main').count(), 4)
+    assert.equal(await page.locator('.brand-detail .brand-meta').count(), 4)
+    assert.equal(await page.locator('.brand-detail .source-line').count(), 0)
+    assert.equal(await page.locator('.brand-detail .brand-main').evaluateAll((items) => items.every((item) => item.scrollWidth <= item.clientWidth)), true, '品牌金价首行不应横向溢出')
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
       scroller.scrollTop = scroller.scrollHeight
@@ -113,6 +146,8 @@ try {
       return document.querySelector('.brand-row:last-child').getBoundingClientRect().bottom <= navigationTop
     }), true, '金价页最后一个品牌不应被底部导航遮挡')
     await page.getByRole('button', { name: '油价' }).click()
+    assert.equal(await page.locator('#page-kicker').isHidden(), true)
+    await assertBottomNavigation(page)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '广东最高零售价', exact: true, level: 2 }).waitFor())
     await assert.doesNotReject(() => page.getByText(/^当前有效 · 自.+起执行$/).waitFor())
     await assert.doesNotReject(() => page.getByText('来源：广东省发展改革委', { exact: true }).waitFor())
@@ -121,11 +156,16 @@ try {
     assert.equal(await page.locator('.fuel-grid').evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(' ').length), 3)
     assert.equal(await page.locator('.fuel-detail .fuel-unit').count(), 3)
     assert.equal(await page.locator('.fuel-detail .fuel-name').evaluateAll((items) => items.every((item) => item.scrollWidth <= item.clientWidth)), true, '油品名称不应在三列卡片内换行或溢出')
+    assert.equal(await page.locator('.fuel-detail').evaluateAll((items) => {
+      const rectangles = items.map((item) => item.getBoundingClientRect())
+      return rectangles.length === 3 && rectangles.every((rectangle) => rectangle.top === rectangles[0].top && rectangle.height === rectangles[0].height)
+    }), true, '三张油价卡应同一行且等高')
     assert.equal(await page.locator('.fuel-detail .source-line').count(), 0)
     assert.equal(await page.locator('.fuel-detail .quote-meta').count(), 0)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价调整记录', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText('当前仅有1次调价记录，历史数据积累中', { exact: true }).waitFor())
     assert.equal(await page.locator('.trend-section .trend-svg').count(), 0)
+    assert.equal(await page.getByText('仅展示可靠行情记录', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
       scroller.scrollTop = scroller.scrollHeight

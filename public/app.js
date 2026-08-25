@@ -66,7 +66,12 @@ function statusLine(item, timeLabel = '行情时间', timeValue = item.observedA
   return line
 }
 
-function sourceLine(item, fallback = '公开报价') { return element('p', 'source-line', item.available ? `来源：${item.sourceLabel ?? fallback}` : '') }
+function displaySourceLabel(item, fallback = '公开报价') {
+  if (item.assetId === 'au9999') return '上海黄金交易所'
+  return item.sourceLabel ?? fallback
+}
+
+function sourceLine(item, fallback = '公开报价') { return element('p', 'source-line', item.available ? displaySourceLabel(item, fallback) : '') }
 
 function sectionHeading(title, note) {
   const heading = element('div', 'section-heading')
@@ -82,6 +87,11 @@ function trendPoints(data, assetIds, days = trendRangeDays) {
       .filter((item) => item.assetId === assetId && Date.parse(item.date ?? item.timestamp) >= cutoff)
       .map((item) => ({ ...item, timestamp: item.date ?? item.timestamp })),
   }))
+}
+
+function sharedQuoteDay(items) {
+  const days = [...new Set(items.filter((item) => item?.available).map((item) => dateTime(item.observedAt).split(' ')[0]))]
+  return days.length === 1 ? days[0] : null
 }
 
 function svgNode(name, attributes = {}) {
@@ -231,51 +241,68 @@ const QUOTE_COPY = {
 
 function quoteCopy(item) { return QUOTE_COPY[item.assetId] ?? { title: item.label, subtitle: null } }
 
-function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false, exceptionStatusOnly = false } = {}) {
+function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false, exceptionStatusOnly = false, showExceptionalMeta = false } = {}) {
   const card = element('article', `quote-card ${className}`)
   const copy = quoteCopy(item)
+  const isSpread = item.assetId === 'domestic-international-gold-spread'
   const heading = element('div', 'quote-heading')
   heading.append(element('h3', '', copy.title))
-  if (unitLabel) heading.append(element('span', 'unit', unitLabel))
+  if (isSpread) heading.append(element('span', 'spread-heading-note', copy.subtitle))
+  else if (unitLabel) heading.append(element('span', 'unit', unitLabel))
   card.append(heading)
-  if (copy.subtitle) card.append(element('p', 'quote-subtitle', copy.subtitle))
-  card.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
-  if (item.assetId === 'domestic-international-gold-spread' && item.available) card.append(element('p', 'spread-percent', Number.isFinite(item.percentage) ? `较国际折算价 ${item.percentage >= 0 ? '+' : ''}${formatter.format(item.percentage)}%` : '百分比不可用'))
+  if (copy.subtitle && !isSpread) card.append(element('p', 'quote-subtitle', copy.subtitle))
+  if (isSpread && item.available) {
+    const values = element('div', 'spread-values')
+    const amount = element('div', 'spread-metric')
+    amount.append(element('strong', 'quote-value', quoteValue(item)), element('span', 'spread-unit', '元/克'))
+    const percentage = element('div', 'spread-metric spread-percentage')
+    percentage.append(element('strong', 'spread-percent-value', Number.isFinite(item.percentage) ? `${item.percentage >= 0 ? '+' : ''}${formatter.format(item.percentage)}%` : '百分比不可用'), element('span', 'spread-context', '相对国际金价'))
+    values.append(amount, percentage)
+    card.append(values)
+  } else {
+    card.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
+  }
   if (exceptionStatusOnly) {
     if (item.displayStatus !== 'current' || !item.available) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
+  } else if (showExceptionalMeta) {
+    if (item.displayStatus !== 'current' || !item.available) card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   } else {
     card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   }
-  if (source) card.append(sourceLine(item))
+  if (source && !['international-gold-cny-gram', 'au9999'].includes(item.assetId) && item.sourceLabel !== '公式计算') card.append(sourceLine(item))
   return card
 }
 
 function brandRow(item, detailed) {
   const row = element('article', detailed ? 'brand-row brand-detail' : 'brand-row')
+  if (detailed) {
+    const main = element('div', 'brand-main')
+    main.append(
+      element('h3', 'brand-name', item.label),
+      element('span', 'brand-product', item.product),
+      element('strong', item.available ? '' : 'unavailable-value', quoteValue(item, '元/克')),
+    )
+    const meta = element('p', 'brand-meta', item.available ? `${dateTime(item.observedAt)} · ${displaySourceLabel(item)}` : item.reason || '暂未取得可靠数据')
+    if (item.displayStatus !== 'current' || !item.available) meta.append(document.createTextNode(' · '), element('span', `status status-${item.displayStatus}`, statusText(item)))
+    row.append(main, meta)
+    return row
+  }
   const label = element('div', 'brand-label')
   label.append(element('h3', '', item.label))
   if (detailed) label.append(element('p', 'product-line', item.product))
   row.append(label, element('strong', item.available ? '' : 'unavailable-value', quoteValue(item, '元/克')), statusLine(item))
-  if (detailed) row.append(sourceLine(item))
   return row
 }
 
 function fuelCard(item, detailed = false) {
-  if (detailed) {
-    const card = element('article', 'fuel-card fuel-detail')
-    card.append(element('h3', 'fuel-name', item.label))
-    const valueLine = element('div', 'fuel-value-line')
-    valueLine.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
-    if (item.available) valueLine.append(element('span', 'fuel-unit', '元/升'))
-    card.append(valueLine)
-    if (item.displayStatus !== 'current' || !item.available) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
-    return card
-  }
-  return quoteCard(item, `fuel-card fuel-${detailed ? 'detail' : item.priority}${detailed ? ' fuel-detail' : ''}`, {
-    unitLabel: '元/升', source: false,
-    showCurrentStatus: false,
-    exceptionStatusOnly: detailed,
-  })
+  const card = element('article', `fuel-card ${detailed ? 'fuel-detail' : 'fuel-summary'}`)
+  card.append(element('h3', 'fuel-name', item.label))
+  const valueLine = element('div', 'fuel-value-line')
+  valueLine.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
+  if (item.available) valueLine.append(element('span', 'fuel-unit', '元/升'))
+  card.append(valueLine)
+  if (item.displayStatus !== 'current' || !item.available) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
+  return card
 }
 
 function brandSummaryItem(item) {
@@ -292,9 +319,7 @@ function brandSummary(view) {
   section.append(sectionHeading('品牌金价', '足金饰品，元/克'))
   const summary = element('div', 'brand-summary')
   view.brands.forEach((item) => summary.append(brandSummaryItem(item)))
-  const time = view.brands.find((item) => item.available)?.observedAt
-  const meta = element('p', 'brand-summary-meta', time ? `报价时间：${dateTime(time)}` : '报价时间：暂无可靠数据')
-  section.append(summary, meta)
+  section.append(summary)
   return section
 }
 
@@ -304,12 +329,13 @@ function renderHome(view) {
   goldSection.append(sectionHeading('金价摘要', '国际与国内金价'))
   const goldGrid = element('div', 'gold-grid')
   const homeGold = [{ ...view.xauUsd, label: '国际金价 XAU/USD' }, view.gold.find((item) => item.assetId === 'au9999')]
-  homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item)))
+  homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item, 'home-quote', { showExceptionalMeta: true })))
   goldSection.append(goldGrid)
   const fuelSection = element('section', 'fuel-section')
   fuelSection.append(sectionHeading('油价摘要', '广东官方最高零售价'))
   const fuelGrid = element('div', 'fuel-grid')
-  view.fuel.forEach((item) => fuelGrid.append(fuelCard(item)))
+  const homeFuel = latestData?.views?.fuel?.fuel ?? view.fuel
+  homeFuel.forEach((item) => fuelGrid.append(fuelCard(item)))
   fuelSection.append(fuelGrid)
   fragment.append(goldSection, brandSummary(view), fuelSection)
   return fragment
@@ -318,12 +344,14 @@ function renderHome(view) {
 function renderGold(view) {
   const fragment = document.createDocumentFragment()
   const marketSection = element('section', 'summary-section')
-  marketSection.append(sectionHeading('金价参考', '金价与价差'))
+  const marketQuotes = [...view.gold, ...view.references]
+  const marketDate = sharedQuoteDay(marketQuotes)
+  marketSection.append(sectionHeading('金价参考', marketDate ? `数据日期：${marketDate}` : '金价与价差'))
   const goldGrid = element('div', 'gold-grid')
-  view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : '', { source: true })))
+  view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(goldGrid)
   const references = element('div', 'reference-list')
-  view.references.forEach((item) => references.append(quoteCard(item, 'reference-card', { source: true, unitLabel: item.assetId === 'usd-cny' ? '' : item.unitLabel })))
+  view.references.forEach((item) => references.append(quoteCard(item, 'reference-card', { source: true, unitLabel: item.assetId === 'usd-cny' ? '' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(references)
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('金价趋势', '仅展示本地真实记录'))
@@ -383,16 +411,17 @@ function renderFuel(view) {
 function render(data) {
   latestData = data
   const view = data.views[activeView]
-  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : renderFuel(view), element('footer', 'page-footer', '仅展示可靠行情记录'))
+  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : renderFuel(view))
   app.setAttribute('aria-busy', 'false')
   hasRendered = true
 }
 
 function selectView(viewName, focus = false) {
   activeView = viewName
-  const titles = { home: ['日常行情', '广东 · 日常价格'], gold: ['金价', '国际、国内与品牌金价'], fuel: ['广东油价', '92、95与0号柴油'] }
+  const titles = { home: ['日常行情', null], gold: ['金价', '国际、国内与品牌金价'], fuel: ['广东油价', null] }
   pageTitle.textContent = titles[viewName][0]
-  pageKicker.textContent = titles[viewName][1]
+  pageKicker.textContent = titles[viewName][1] ?? ''
+  pageKicker.hidden = !titles[viewName][1]
   navigationButtons.forEach((button) => button.toggleAttribute('aria-current', button.dataset.view === viewName))
   if (latestData) render(latestData)
   if (focus) { pageShell.scrollTo({ top: 0, behavior: 'auto' }); pageTitle.focus({ preventScroll: true }) }
