@@ -195,11 +195,24 @@ function fuelMovement(item) {
   return `最近一次${delta > 0 ? '上涨' : '下降'}${formatter.format(Math.abs(delta))}元/升`
 }
 
+const QUOTE_COPY = {
+  'xau-usd': { title: '国际金价', subtitle: 'XAU/USD · 国际现货黄金' },
+  au9999: { title: '国内金价', subtitle: 'Au99.99 · 上海黄金交易所' },
+  'usd-cny': { title: '美元兑人民币', subtitle: 'USD/CNY' },
+  'international-gold-cny-gram': { title: '国际金价折算', subtitle: '按美元兑人民币换算为元/克' },
+  'domestic-international-gold-spread': { title: '国内外价差', subtitle: '上金所金价 - 国际折算价' },
+}
+
+function quoteCopy(item) { return QUOTE_COPY[item.assetId] ?? { title: item.label, subtitle: null } }
+
 function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false } = {}) {
   const card = element('article', `quote-card ${className}`)
+  const copy = quoteCopy(item)
   const heading = element('div', 'quote-heading')
-  heading.append(element('h3', '', item.label), element('span', 'unit', unitLabel))
-  card.append(heading, element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
+  heading.append(element('h3', '', copy.title), element('span', 'unit', unitLabel))
+  card.append(heading)
+  if (copy.subtitle) card.append(element('p', 'quote-subtitle', copy.subtitle))
+  card.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
   if (item.assetId === 'domestic-international-gold-spread' && item.available) card.append(element('p', 'spread-percent', Number.isFinite(item.percentage) ? `较国际折算价 ${item.percentage >= 0 ? '+' : ''}${formatter.format(item.percentage)}%` : '百分比不可用'))
   card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   if (source) card.append(sourceLine(item))

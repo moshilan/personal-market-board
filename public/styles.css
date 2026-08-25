@@ -29,7 +29,10 @@ section { margin-top: 31px; }
 .gold-primary { grid-column: 1 / -1; min-height: 174px; color: #fffbf0; border-color: #1f554a; background: #205c50; }
 .gold-primary .unit, .gold-primary .quote-meta { color: #d4e6d5; }
 .quote-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.quote-heading h3 { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; }
 .unit { color: #61736d; font-size: 11px; white-space: nowrap; }
+.quote-subtitle { margin-top: 4px; color: #61736d; font-size: 11px; line-height: 1.25; }
+.quote-subtitle + .quote-value { margin-top: 15px; }
 .quote-value { display: block; margin-top: 21px; font-size: clamp(25px, 7vw, 35px); letter-spacing: -.07em; line-height: 1; }
 .unavailable-value { color: #89918b; font-size: 21px; letter-spacing: -.03em; }
 .gold-primary .unavailable-value { color: #d4e6d5; }
