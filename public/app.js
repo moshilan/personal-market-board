@@ -78,7 +78,9 @@ function trendPoints(data, assetIds, days = trendRangeDays) {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1_000
   return assetIds.map((assetId) => ({
     assetId,
-    points: (data.history ?? []).filter((item) => item.assetId === assetId && Date.parse(item.timestamp) >= cutoff),
+    points: (data.history ?? [])
+      .filter((item) => item.assetId === assetId && Date.parse(item.date ?? item.timestamp) >= cutoff)
+      .map((item) => ({ ...item, timestamp: item.date ?? item.timestamp })),
   }))
 }
 
@@ -111,8 +113,9 @@ function chartSvg(series, { step = false, zeroLine = false } = {}) {
   const plotWidth = width - left - right
   const plotHeight = height - top - bottom
   const valueRange = domain.maxValue - domain.minValue || 1
+  const hasTimeRange = domain.maxTime !== domain.minTime
   const timeRange = domain.maxTime - domain.minTime || 1
-  const x = (point) => left + (Date.parse(point.timestamp) - domain.minTime) / timeRange * plotWidth
+  const x = (point) => hasTimeRange ? left + (Date.parse(point.timestamp) - domain.minTime) / timeRange * plotWidth : left + plotWidth / 2
   const y = (value) => top + (domain.maxValue - value) / valueRange * plotHeight
   const svg = svgNode('svg', { class: 'trend-svg', viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': '历史趋势图' })
   ;[0, .5, 1].forEach((ratio) => svg.append(svgNode('line', { x1: left, y1: top + plotHeight * ratio, x2: width - right, y2: top + plotHeight * ratio, class: 'trend-grid-line' })))
@@ -122,11 +125,14 @@ function chartSvg(series, { step = false, zeroLine = false } = {}) {
     label.textContent = formatter.format(value)
     svg.append(label)
   })
-  const firstLabel = svgNode('text', { x: left, y: height - 8, class: 'trend-axis-label' })
+  const firstLabel = svgNode('text', { x: hasTimeRange ? left : width / 2, y: height - 8, class: 'trend-axis-label', ...(hasTimeRange ? {} : { 'text-anchor': 'middle' }) })
   firstLabel.textContent = dateShort(new Date(domain.minTime).toISOString())
-  const lastLabel = svgNode('text', { x: width - right, y: height - 8, class: 'trend-axis-label', 'text-anchor': 'end' })
-  lastLabel.textContent = dateShort(new Date(domain.maxTime).toISOString())
-  svg.append(firstLabel, lastLabel)
+  svg.append(firstLabel)
+  if (hasTimeRange) {
+    const lastLabel = svgNode('text', { x: width - right, y: height - 8, class: 'trend-axis-label', 'text-anchor': 'end' })
+    lastLabel.textContent = dateShort(new Date(domain.maxTime).toISOString())
+    svg.append(lastLabel)
+  }
   series.forEach(({ assetId, points }) => {
     if (!points.length) return
     const commands = points.map((point, index) => {
@@ -174,7 +180,20 @@ function accumulationNote(series, days) {
   return element('p', 'trend-note', `近${days}天，共${points.length}条真实记录`)
 }
 
-function trendCard({ title, note, series, step = false, zeroLine = false, showRange = false, rangeDays = trendRangeDays }) {
+function goldTrendNote(series, days) {
+  const counts = series.map((item) => `${item.label}${item.points.length}条`)
+  if (series.every((item) => item.points.length >= 2)) return accumulationNote(series, days)
+  return element('p', 'trend-note', `历史数据积累中，${counts.join('，')}`)
+}
+
+function spreadTrendNote(series, currentSpread, days) {
+  const count = series[0].points.length
+  if (!count) return element('p', 'trend-note', currentSpread?.available ? '暂无历史记录，等待下一次采集' : '暂无历史记录')
+  if (count === 1) return element('p', 'trend-note', '当前仅有1条历史记录，数据积累中')
+  return accumulationNote(series, days)
+}
+
+function trendCard({ title, note, series, step = false, zeroLine = false, showRange = false, rangeDays = trendRangeDays, statusNote }) {
   const card = element('section', 'trend-card')
   const heading = element('div', 'trend-card-heading')
   const titleNode = element('div')
@@ -184,7 +203,7 @@ function trendCard({ title, note, series, step = false, zeroLine = false, showRa
   card.append(heading, trendLegend(series))
   const svg = chartSvg(series, { step, zeroLine })
   if (svg) card.append(svg)
-  card.append(accumulationNote(series, rangeDays))
+  card.append(statusNote ? statusNote() : accumulationNote(series, rangeDays))
   return card
 }
 
@@ -311,10 +330,11 @@ function renderGold(view) {
   const goldSeries = trendPoints(latestData, ['international-gold-cny-gram', 'au9999'])
   goldSeries[0].label = '国际金价折算'
   goldSeries[1].label = '国内金价'
-  historySection.append(trendCard({ title: '国际与国内金价', note: '元/克，同一坐标便于观察差距', series: goldSeries, showRange: true }))
+  historySection.append(trendCard({ title: '国际与国内金价', note: '元/克，同一坐标便于观察差距', series: goldSeries, showRange: true, statusNote: () => goldTrendNote(goldSeries, trendRangeDays) }))
   const spreadSeries = trendPoints(latestData, ['domestic-international-gold-spread'])
   spreadSeries[0].label = '国内外价差'
-  historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true }))
+  const currentSpread = view.gold.find((item) => item.assetId === 'domestic-international-gold-spread')
+  historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true, statusNote: () => spreadTrendNote(spreadSeries, currentSpread, trendRangeDays) }))
   const brandSection = element('section', 'brands-section')
   brandSection.append(sectionHeading('品牌金价', '品类、时间与来源'))
   const brandList = element('div', 'brand-list')

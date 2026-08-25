@@ -15,20 +15,35 @@ function trendTime(observation) {
   return observation.metadata?.effectiveFrom ?? observation.collectedAt ?? observation.observedAt
 }
 
+function chinaDate(timestamp) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date(timestamp)).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  return `${parts.year}-${parts.month}-${parts.day}`
+}
+
 export function buildTrendHistory(history, now = Date.now()) {
   const from = now - THIRTY_DAYS_MS
-  return history
+  const latestByAssetDay = new Map()
+  for (const observation of history
     .filter((item) => item.available && TREND_ASSETS.has(item.assetId))
-    .filter((item) => Date.parse(trendTime(item)) >= from)
+    .filter((item) => Date.parse(trendTime(item)) >= from)) {
+    const date = chinaDate(trendTime(observation))
+    const key = `${observation.assetId}:${date}`
+    const existing = latestByAssetDay.get(key)
+    if (!existing || Date.parse(observation.collectedAt) > Date.parse(existing.collectedAt)) latestByAssetDay.set(key, observation)
+  }
+  return [...latestByAssetDay.values()]
     .map((item) => ({
       assetId: item.assetId,
       value: item.value,
       percentage: item.percentage ?? null,
+      date: chinaDate(trendTime(item)),
       timestamp: trendTime(item),
       observedAt: item.observedAt,
       collectedAt: item.collectedAt,
     }))
-    .sort((left, right) => Date.parse(left.timestamp) - Date.parse(right.timestamp))
+    .sort((left, right) => left.date.localeCompare(right.date) || left.assetId.localeCompare(right.assetId))
 }
 
 export function buildDashboardResponse(store, now = Date.now()) {

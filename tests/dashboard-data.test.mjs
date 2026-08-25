@@ -25,7 +25,20 @@ test('趋势响应只包含近30天的趋势资产和必要字段', () => {
   ]
   const trend = buildTrendHistory(history, now)
   assert.deepEqual(trend.map((item) => item.assetId), ['guangdong-fuel-95', 'au9999', 'international-gold-cny-gram'])
-  assert.deepEqual(Object.keys(trend[0]).sort(), ['assetId', 'collectedAt', 'observedAt', 'percentage', 'timestamp', 'value'])
+  assert.deepEqual(Object.keys(trend[0]).sort(), ['assetId', 'collectedAt', 'date', 'observedAt', 'percentage', 'timestamp', 'value'])
+})
+
+test('同一自然日趋势记录只保留采集时间最晚的一条', () => {
+  const now = Date.parse('2026-08-25T12:00:00.000Z')
+  const trend = buildTrendHistory([
+    observation('international-gold-cny-gram', 1001, '2026-08-24T01:00:00.000Z', { collectedAt: '2026-08-24T01:00:00.000Z' }),
+    observation('international-gold-cny-gram', 1005, '2026-08-24T09:00:00.000Z', { collectedAt: '2026-08-24T09:00:00.000Z' }),
+    observation('au9999', 1003, '2026-08-24T08:00:00.000Z'),
+    observation('domestic-international-gold-spread', 2, '2026-08-24T08:00:00.000Z', { percentage: 0.2 }),
+  ], now)
+  assert.equal(trend.filter((item) => item.assetId === 'international-gold-cny-gram').length, 1)
+  assert.equal(trend.find((item) => item.assetId === 'international-gold-cny-gram').value, 1005)
+  assert.deepEqual([...new Set(trend.map((item) => item.date))], ['2026-08-24'])
 })
 
 test('仪表盘响应保留页面当前数据并附带趋势历史', () => {
@@ -38,6 +51,6 @@ test('仪表盘响应保留页面当前数据并附带趋势历史', () => {
     latestSuccessfulByAsset: {},
   }
   const response = buildDashboardResponse(store, Date.parse('2026-08-24T12:00:00.000Z'))
-  assert.deepEqual(response.history.map((item) => item.assetId), ['international-gold-cny-gram', 'domestic-international-gold-spread'])
+  assert.deepEqual(response.history.map((item) => item.assetId).sort(), ['domestic-international-gold-spread', 'international-gold-cny-gram'])
   assert.ok(response.views.gold)
 })

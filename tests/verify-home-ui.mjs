@@ -82,24 +82,27 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国内外价差', exact: true }).first().waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '金价趋势', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际与国内金价', exact: true }).waitFor())
-    await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有2条真实记录', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('历史数据积累中，国际金价折算0条，国内金价1条', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('暂无历史记录，等待下一次采集', { exact: true }).waitFor())
     await page.getByRole('button', { name: '30天', exact: true }).click()
     assert.equal(await page.getByRole('button', { name: '30天', exact: true }).getAttribute('aria-pressed'), 'true')
     const singlePointTrendSnapshot = structuredClone(snapshot)
     const trendTimestamp = snapshot.collectedAt
+    const trendDate = trendTimestamp.slice(0, 10)
     const currentGold = Object.fromEntries(snapshot.views.gold.gold.map((item) => [item.assetId, item]))
     singlePointTrendSnapshot.history = [
-      { assetId: 'international-gold-cny-gram', value: currentGold['international-gold-cny-gram'].value, percentage: null, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
-      { assetId: 'au9999', value: currentGold.au9999.value, percentage: null, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
-      { assetId: 'domestic-international-gold-spread', value: currentGold['domestic-international-gold-spread'].value, percentage: currentGold['domestic-international-gold-spread'].percentage, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
+      { assetId: 'international-gold-cny-gram', value: currentGold['international-gold-cny-gram'].value, percentage: null, date: trendDate, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
+      { assetId: 'au9999', value: currentGold.au9999.value, percentage: null, date: trendDate, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
+      { assetId: 'domestic-international-gold-spread', value: currentGold['domestic-international-gold-spread'].value, percentage: currentGold['domestic-international-gold-spread'].percentage, date: trendDate, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
     ]
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(singlePointTrendSnapshot) }))
     await page.getByRole('button', { name: '刷新显示' }).click()
-    await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有1条真实记录', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('当前仅有1条历史记录，数据积累中', { exact: true }).waitFor())
     assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-dot').count(), 2)
     assert.deepEqual(await page.locator('.trend-card').nth(0).locator('.trend-dot').evaluateAll((dots) => dots.map((dot) => dot.getAttribute('fill')).sort()), ['#205c50', '#a96f17'])
     assert.equal(await page.locator('.trend-card').nth(1).locator('.trend-dot').count(), 1)
-    await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有2条真实记录', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('历史数据积累中，国际金价折算1条，国内金价1条', { exact: true }).waitFor())
+    assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-axis-label').evaluateAll((labels) => labels.filter((label) => /^\d+\/\d+$/.test(label.textContent)).length), 1)
     await page.unroute('**/api/home.json')
     await page.getByRole('button', { name: '刷新显示' }).click()
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
