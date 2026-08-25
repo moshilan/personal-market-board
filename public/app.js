@@ -195,6 +195,13 @@ function fuelMovement(item) {
   return `最近一次${delta > 0 ? '上涨' : '下降'}${formatter.format(Math.abs(delta))}元/升`
 }
 
+function fuelTrendPoints(data, assetIds, maxRecords = 10) {
+  const records = (data.history ?? []).filter((item) => assetIds.includes(item.assetId))
+  const timestamps = [...new Set(records.map((item) => item.timestamp))].sort((left, right) => Date.parse(left) - Date.parse(right)).slice(-maxRecords)
+  const includedTimestamps = new Set(timestamps)
+  return assetIds.map((assetId) => ({ assetId, points: records.filter((item) => item.assetId === assetId && includedTimestamps.has(item.timestamp)) }))
+}
+
 const QUOTE_COPY = {
   'xau-usd': { title: '国际金价', subtitle: 'XAU/USD · 国际现货黄金' },
   au9999: { title: '国内金价', subtitle: '上金所 Au99.99' },
@@ -209,7 +216,8 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
   const card = element('article', `quote-card ${className}`)
   const copy = quoteCopy(item)
   const heading = element('div', 'quote-heading')
-  heading.append(element('h3', '', copy.title), element('span', 'unit', unitLabel))
+  heading.append(element('h3', '', copy.title))
+  if (unitLabel) heading.append(element('span', 'unit', unitLabel))
   card.append(heading)
   if (copy.subtitle) card.append(element('p', 'quote-subtitle', copy.subtitle))
   card.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
@@ -234,7 +242,7 @@ function brandRow(item, detailed) {
 }
 
 function fuelCard(item, detailed = false) {
-  return quoteCard(item, `fuel-card fuel-${item.priority}${detailed ? ' fuel-detail' : ''}`, {
+  return quoteCard(item, `fuel-card fuel-${detailed ? 'detail' : item.priority}${detailed ? ' fuel-detail' : ''}`, {
     unitLabel: '元/升', source: false,
     showCurrentStatus: false,
     exceptionStatusOnly: detailed,
@@ -281,12 +289,12 @@ function renderHome(view) {
 function renderGold(view) {
   const fragment = document.createDocumentFragment()
   const marketSection = element('section', 'summary-section')
-  marketSection.append(sectionHeading('国际与国内参考', '金价与价差'))
+  marketSection.append(sectionHeading('金价参考', '金价与价差'))
   const goldGrid = element('div', 'gold-grid')
   view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : '', { source: true })))
   marketSection.append(goldGrid)
   const references = element('div', 'reference-list')
-  view.references.forEach((item) => references.append(quoteCard(item, 'reference-card', { source: true })))
+  view.references.forEach((item) => references.append(quoteCard(item, 'reference-card', { source: true, unitLabel: item.assetId === 'usd-cny' ? '' : item.unitLabel })))
   marketSection.append(references)
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('金价趋势', '仅展示本地真实记录'))
@@ -314,9 +322,9 @@ function renderFuel(view) {
   fuelHeading.append(element('h2', '', '广东最高零售价'))
   const fuelContext = element('div', 'fuel-context')
   fuelContext.append(
-    element('p', '', currentFuel?.effectiveAt ? `当前执行：自${dateTime(currentFuel.effectiveAt)}起` : '当前执行：暂无可靠生效时间'),
+    element('p', '', currentFuel?.effectiveAt ? `当前有效 · 自${dateTime(currentFuel.effectiveAt)}起执行` : '当前有效时间暂无可靠数据'),
     element('p', '', `来源：${currentFuel?.sourceLabel ?? '广东省发展改革委'}`),
-    element('p', 'fuel-note', '政府最高零售价；各加油站实际售价可能更低。'),
+    element('p', 'fuel-note', '各加油站实际售价可能低于政府最高零售价。'),
   )
   fuelHeading.append(fuelContext)
   fuelSection.append(fuelHeading)
@@ -324,15 +332,20 @@ function renderFuel(view) {
   view.fuel.forEach((item) => fuelGrid.append(fuelCard(item, true)))
   fuelSection.append(fuelGrid)
   const trendSection = element('section', 'trend-section')
-  trendSection.append(sectionHeading('油价调整记录', '按实际生效日期'))
-  const fuelSeries = trendPoints(latestData, ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel'], 30)
+  trendSection.append(sectionHeading('油价调整记录', '最近10次调价'))
+  const fuelSeries = fuelTrendPoints(latestData, ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel'])
   fuelSeries[0].label = '92号汽油'
   fuelSeries[1].label = '95号汽油'
   fuelSeries[2].label = '0号柴油'
-  trendSection.append(trendCard({ title: '广东油价调价趋势', note: '元/升，每个点为一次实际调价，展示近30天', series: fuelSeries, step: true, rangeDays: 30 }))
-  const movements = element('div', 'fuel-movements')
-  fuelSeries.forEach((item) => movements.append(element('p', '', `${item.label}：${fuelMovement(item)}`)))
-  trendSection.append(movements)
+  const fuelRecordCount = new Set(fuelSeries.flatMap((item) => item.points.map((point) => point.timestamp))).size
+  if (fuelRecordCount < 2) {
+    trendSection.append(element('p', 'trend-note', fuelRecordCount === 1 ? '当前仅有1次调价记录，历史数据积累中' : '历史数据积累中，尚无真实调价记录'))
+  } else {
+    trendSection.append(trendCard({ title: '广东油价调价趋势', note: '元/升，每个点为一次实际调价，展示最近10次', series: fuelSeries, step: true }))
+    const movements = element('div', 'fuel-movements')
+    fuelSeries.forEach((item) => movements.append(element('p', '', `${item.label}：${fuelMovement(item)}`)))
+    trendSection.append(movements)
+  }
   fragment.append(fuelSection, trendSection)
   return fragment
 }
