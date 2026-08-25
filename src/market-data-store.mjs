@@ -112,11 +112,12 @@ export function normalizeSnapshot(rawSnapshot) {
   const idsByName = new Map(baseRecords.map((record) => [record.name, observationId(record)]))
 
   for (const record of rawRecords.filter((item) => item.sourceUrl === 'derived')) {
+    const recordWithCollectionTime = { ...record, collectedAt: record.collectedAt ?? rawSnapshot.collectedAt }
     const derivedFromIds = record.available
       ? record.inputs.map((input) => idsByName.get(input.name)).filter(Boolean)
       : []
-    observations.push(record.available ? availableObservation(record, derivedFromIds) : unavailableObservation(record))
-    idsByName.set(record.name, observationId(record))
+    observations.push(recordWithCollectionTime.available ? availableObservation(recordWithCollectionTime, derivedFromIds) : unavailableObservation(recordWithCollectionTime))
+    idsByName.set(recordWithCollectionTime.name, observationId(recordWithCollectionTime))
   }
 
   return {

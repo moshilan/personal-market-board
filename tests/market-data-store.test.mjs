@@ -31,10 +31,10 @@ function snapshot(collectedAt, { xauAvailable = true } = {}) {
   const usdCny = available('USD/CNY', 7.2, collectedAt, { baseCurrency: 'USD', quoteCurrency: 'CNY', unit: 'rate' })
   const au9999 = available('Au99.99', 560, collectedAt)
   const internationalGoldCny = xauAvailable
-    ? available('国际黄金人民币折算价', 555, collectedAt, { sourceUrl: 'derived', inputs: [{ name: 'XAU/USD' }, { name: 'USD/CNY' }], calculatedAt: collectedAt })
+    ? available('国际黄金人民币折算价', 555, collectedAt, { sourceUrl: 'derived', inputs: [{ name: 'XAU/USD' }, { name: 'USD/CNY' }], calculatedAt: collectedAt, collectedAt: undefined })
     : unavailable('国际黄金人民币折算价', collectedAt)
   const spread = xauAvailable
-    ? available('国内外价差', 5, collectedAt, { sourceUrl: 'derived', percentage: 0.9, inputs: [{ name: 'Au99.99' }, { name: '国际黄金人民币折算价' }], calculatedAt: collectedAt })
+    ? available('国内外价差', 5, collectedAt, { sourceUrl: 'derived', percentage: 0.9, inputs: [{ name: 'Au99.99' }, { name: '国际黄金人民币折算价' }], calculatedAt: collectedAt, collectedAt: undefined })
     : unavailable('国内外价差', collectedAt)
   return {
     collectedAt,
@@ -54,6 +54,8 @@ test('派生记录保留原始记录追溯关系', () => {
   assert.deepEqual(byAsset['international-gold-cny-gram'].derivedFromIds, [byAsset['xau-usd'].id, byAsset['usd-cny'].id])
   assert.deepEqual(byAsset['domestic-international-gold-spread'].derivedFromIds, [byAsset.au9999.id, byAsset['international-gold-cny-gram'].id])
   assert.equal(byAsset['domestic-international-gold-spread'].percentage, 0.9)
+  assert.equal(byAsset['international-gold-cny-gram'].collectedAt, '2026-08-24T08:00:00.000Z')
+  assert.equal(byAsset['domestic-international-gold-spread'].collectedAt, '2026-08-24T08:00:00.000Z')
   assert.equal(byAsset['guangdong-fuel-92'].observedAt, '2026-08-14T16:00:00.000Z')
 })
 
@@ -78,6 +80,8 @@ test('历史按30分钟、品牌日期和油价生效时间去重', async () => 
   const third = await persistSnapshot(snapshot('2026-08-24T08:31:00.000Z'), storePath)
   assert.equal(getHistory(third.store, 'xau-usd').length, 2)
   assert.equal(getHistory(third.store, 'au9999').length, 2)
+  assert.equal(getHistory(third.store, 'international-gold-cny-gram').length, 2)
+  assert.equal(getHistory(third.store, 'domestic-international-gold-spread').length, 2)
   assert.equal(getHistory(third.store, 'brand-gold-chow-sang-sang').length, 1)
   assert.equal(getHistory(third.store, 'guangdong-fuel-92').length, 1)
   assert.equal(buildDisplaySnapshot(first.liveSnapshot, second.store).observations[0].displayStatus, 'current')
@@ -90,4 +94,16 @@ test('历史只保留最近31天，当前成功缓存不受影响', async () => 
   const result = await persistSnapshot(snapshot('2026-08-24T08:00:00.000Z'), storePath)
   assert.equal(getHistory(result.store, 'xau-usd').length, 1)
   assert.equal(result.store.latestSuccessfulByAsset['xau-usd'].observedAt, '2026-08-24T08:00:00.000Z')
+})
+
+test('派生记录不会被31天清理逻辑误删', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
+  const storePath = join(directory, 'market-data.json')
+  const result = await persistSnapshot(snapshot('2026-08-24T08:00:00.000Z'), storePath)
+  const internationalGold = getHistory(result.store, 'international-gold-cny-gram')
+  const spread = getHistory(result.store, 'domestic-international-gold-spread')
+  assert.equal(internationalGold.length, 1)
+  assert.equal(spread.length, 1)
+  assert.equal(internationalGold[0].collectedAt, '2026-08-24T08:00:00.000Z')
+  assert.equal(spread[0].collectedAt, '2026-08-24T08:00:00.000Z')
 })

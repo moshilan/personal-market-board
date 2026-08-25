@@ -56,7 +56,7 @@ try {
     }), true, '滚动到页面底部时，品牌摘要和油价摘要不应被底部导航遮挡')
     const snapshot = await page.evaluate(() => fetch('/api/home.json', { cache: 'no-store' }).then((response) => response.json()))
     const anomalousSnapshot = structuredClone(snapshot)
-    anomalousSnapshot.views.home.gold[0].displayStatus = 'cached'
+    anomalousSnapshot.views.home.xauUsd.displayStatus = 'cached'
     anomalousSnapshot.views.home.gold[1].available = false
     anomalousSnapshot.views.home.gold[1].displayStatus = 'unavailable'
     anomalousSnapshot.views.home.gold[1].reason = '测试获取失败'
@@ -84,6 +84,23 @@ try {
     await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有2条真实记录', { exact: true }).waitFor())
     await page.getByRole('button', { name: '30天', exact: true }).click()
     assert.equal(await page.getByRole('button', { name: '30天', exact: true }).getAttribute('aria-pressed'), 'true')
+    const singlePointTrendSnapshot = structuredClone(snapshot)
+    const trendTimestamp = snapshot.collectedAt
+    const currentGold = Object.fromEntries(snapshot.views.gold.gold.map((item) => [item.assetId, item]))
+    singlePointTrendSnapshot.history = [
+      { assetId: 'international-gold-cny-gram', value: currentGold['international-gold-cny-gram'].value, percentage: null, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
+      { assetId: 'au9999', value: currentGold.au9999.value, percentage: null, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
+      { assetId: 'domestic-international-gold-spread', value: currentGold['domestic-international-gold-spread'].value, percentage: currentGold['domestic-international-gold-spread'].percentage, timestamp: trendTimestamp, observedAt: trendTimestamp, collectedAt: trendTimestamp },
+    ]
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(singlePointTrendSnapshot) }))
+    await page.getByRole('button', { name: '刷新显示' }).click()
+    await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有1条真实记录', { exact: true }).waitFor())
+    assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-dot').count(), 2)
+    assert.deepEqual(await page.locator('.trend-card').nth(0).locator('.trend-dot').evaluateAll((dots) => dots.map((dot) => dot.getAttribute('fill')).sort()), ['#205c50', '#a96f17'])
+    assert.equal(await page.locator('.trend-card').nth(1).locator('.trend-dot').count(), 1)
+    await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有2条真实记录', { exact: true }).waitFor())
+    await page.unroute('**/api/home.json')
+    await page.getByRole('button', { name: '刷新显示' }).click()
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
