@@ -75,10 +75,10 @@ section { margin-top: 31px; }
 .fuel-card { min-height: 124px; padding: 13px 15px; border-radius: 15px; }
 .fuel-card strong { display: block; margin-top: 13px; font-size: 29px; letter-spacing: -.07em; }
 .fuel-card.fuel-detail { min-height: 94px; padding: 11px 8px; border-radius: 14px; }
-.fuel-card.fuel-detail .quote-heading { gap: 4px; }
-.fuel-card.fuel-detail .quote-heading h3 { font-size: 13px; }
-.fuel-card.fuel-detail .unit { font-size: 10px; }
-.fuel-card.fuel-detail strong { margin-top: 13px; font-size: clamp(23px, 6.8vw, 27px); }
+.fuel-name { font-size: 13px; line-height: 1.2; white-space: nowrap; }
+.fuel-value-line { display: flex; align-items: baseline; gap: 3px; margin-top: 13px; white-space: nowrap; }
+.fuel-card.fuel-detail strong { display: block; margin: 0; font-size: clamp(23px, 6.8vw, 27px); }
+.fuel-unit { color: #61736d; font-size: 10px; }
 .fuel-card.fuel-detail .quote-exception { margin-top: auto; padding-top: 10px; }
 .fuel-secondary { grid-column: 1 / -1; min-height: auto; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px; padding-block: 13px; background: #f1f2ea; }
 .fuel-secondary strong { margin: 0; font-size: 21px; }

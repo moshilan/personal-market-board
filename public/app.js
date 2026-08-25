@@ -203,7 +203,7 @@ function fuelTrendPoints(data, assetIds, maxRecords = 10) {
 }
 
 const QUOTE_COPY = {
-  'xau-usd': { title: '国际金价', subtitle: 'XAU/USD · 国际现货黄金' },
+  'xau-usd': { title: '国际金价', subtitle: 'XAU/USD' },
   au9999: { title: '国内金价', subtitle: '上金所 Au99.99' },
   'usd-cny': { title: '美元兑人民币', subtitle: 'USD/CNY' },
   'international-gold-cny-gram': { title: '国际金价折算', subtitle: '折算人民币/克' },
@@ -242,6 +242,16 @@ function brandRow(item, detailed) {
 }
 
 function fuelCard(item, detailed = false) {
+  if (detailed) {
+    const card = element('article', 'fuel-card fuel-detail')
+    card.append(element('h3', 'fuel-name', item.label))
+    const valueLine = element('div', 'fuel-value-line')
+    valueLine.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
+    if (item.available) valueLine.append(element('span', 'fuel-unit', '元/升'))
+    card.append(valueLine)
+    if (item.displayStatus !== 'current' || !item.available) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
+    return card
+  }
   return quoteCard(item, `fuel-card fuel-${detailed ? 'detail' : item.priority}${detailed ? ' fuel-detail' : ''}`, {
     unitLabel: '元/升', source: false,
     showCurrentStatus: false,
@@ -353,7 +363,7 @@ function renderFuel(view) {
 function render(data) {
   latestData = data
   const view = data.views[activeView]
-  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : renderFuel(view), element('footer', 'page-footer', '只展示已保存的本地行情记录'))
+  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : renderFuel(view), element('footer', 'page-footer', '仅展示可靠行情记录'))
   app.setAttribute('aria-busy', 'false')
   hasRendered = true
 }
