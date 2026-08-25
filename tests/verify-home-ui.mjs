@@ -51,6 +51,19 @@ try {
       const fuelBottom = document.querySelector('.fuel-grid').getBoundingClientRect().bottom
       return brandBottom <= navigationTop && fuelBottom <= navigationTop
     }), true, '滚动到页面底部时，品牌摘要和油价摘要不应被底部导航遮挡')
+    const snapshot = await page.evaluate(() => fetch('/api/home.json', { cache: 'no-store' }).then((response) => response.json()))
+    const anomalousSnapshot = structuredClone(snapshot)
+    anomalousSnapshot.views.home.gold[0].displayStatus = 'cached'
+    anomalousSnapshot.views.home.gold[1].available = false
+    anomalousSnapshot.views.home.gold[1].displayStatus = 'unavailable'
+    anomalousSnapshot.views.home.gold[1].reason = '测试获取失败'
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(anomalousSnapshot) }))
+    await page.getByRole('button', { name: '刷新显示' }).click()
+    await assert.doesNotReject(() => page.getByText('缓存', { exact: true }).waitFor())
+    await assert.doesNotReject(() => page.getByText('获取失败', { exact: true }).waitFor())
+    assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
+    await page.unroute('**/api/home.json')
+    await page.getByRole('button', { name: '刷新显示' }).click()
     assert.deepEqual(consoleErrors, [])
     await page.getByRole('button', { name: '金价' }).click()
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际与国内参考', exact: true }).waitFor())
@@ -62,7 +75,7 @@ try {
     await assert.doesNotReject(() => page.getByText('历史数据积累中，目前仅有2条真实记录', { exact: true }).waitFor())
     await page.getByRole('button', { name: '30天', exact: true }).click()
     assert.equal(await page.getByRole('button', { name: '30天', exact: true }).getAttribute('aria-pressed'), 'true')
-    assert.equal(await page.getByText('当前有效', { exact: true }).count() > 0, true)
+    assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
       scroller.scrollTop = scroller.scrollHeight

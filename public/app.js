@@ -38,7 +38,13 @@ function dateShort(value) {
   return `${fields.month}/${fields.day}`
 }
 
-function statusText(item, compact = false) { return item.displayStatus === 'cached' ? compact ? '缓存' : '缓存数据' : item.available ? '当前有效' : '不可用' }
+function statusText(item) {
+  if (item.displayStatus === 'cached') return '缓存'
+  const reason = item.reason ?? ''
+  if (/过期|非新鲜|新鲜度/.test(reason)) return item.assetId === 'usd-cny' ? '汇率过期' : '数据较旧'
+  if (/失败|超时|请求|采集|获取/.test(reason)) return '获取失败'
+  return '不可用'
+}
 
 function quoteValue(item, unitLabel) {
   if (!item.available) return '暂无可靠数据'
@@ -53,9 +59,9 @@ function element(tag, className, text) {
   return node
 }
 
-function statusLine(item, timeLabel = '行情时间', timeValue = item.observedAt, { showCurrentStatus = true, compactStatus = false } = {}) {
+function statusLine(item, timeLabel = '行情时间', timeValue = item.observedAt, { showCurrentStatus = false } = {}) {
   const line = element('p', 'quote-meta')
-  if (showCurrentStatus || item.displayStatus !== 'current' || !item.available) line.append(element('span', `status status-${item.displayStatus}`, statusText(item, compactStatus)))
+  if (showCurrentStatus || item.displayStatus !== 'current' || !item.available) line.append(element('span', `status status-${item.displayStatus}`, statusText(item)))
   line.append(element('span', '', item.available ? `${timeLabel}：${dateTime(timeValue)}` : item.reason || '暂未取得可靠数据'))
   return line
 }
@@ -189,13 +195,13 @@ function fuelMovement(item) {
   return `最近一次${delta > 0 ? '上涨' : '下降'}${formatter.format(Math.abs(delta))}元/升`
 }
 
-function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = true, compactStatus = false } = {}) {
+function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false } = {}) {
   const card = element('article', `quote-card ${className}`)
   const heading = element('div', 'quote-heading')
   heading.append(element('h3', '', item.label), element('span', 'unit', unitLabel))
   card.append(heading, element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
   if (item.assetId === 'domestic-international-gold-spread' && item.available) card.append(element('p', 'spread-percent', Number.isFinite(item.percentage) ? `较国际折算价 ${item.percentage >= 0 ? '+' : ''}${formatter.format(item.percentage)}%` : '百分比不可用'))
-  card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus, compactStatus }))
+  card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   if (source) card.append(sourceLine(item))
   return card
 }
@@ -216,8 +222,7 @@ function fuelCard(item, detailed = false) {
     unitLabel: '元/升', source: detailed,
     timeLabel: hasEffectiveTime ? '生效时间' : '行情时间',
     timeValue: hasEffectiveTime ? item.effectiveAt : item.observedAt,
-    showCurrentStatus: detailed,
-    compactStatus: !detailed,
+    showCurrentStatus: false,
   })
 }
 
@@ -225,7 +230,7 @@ function brandSummaryItem(item) {
   const itemNode = element('article', 'brand-summary-item')
   const heading = element('div', 'brand-summary-heading')
   heading.append(element('h3', '', item.label))
-  if (item.displayStatus !== 'current' || !item.available) heading.append(element('span', `status status-${item.displayStatus}`, statusText(item, true)))
+  if (item.displayStatus !== 'current' || !item.available) heading.append(element('span', `status status-${item.displayStatus}`, statusText(item)))
   itemNode.append(heading, element('strong', item.available ? '' : 'unavailable-value', quoteValue(item, '元/克')))
   return itemNode
 }
@@ -247,7 +252,7 @@ function renderHome(view) {
   goldSection.append(sectionHeading('金价摘要', '国际与国内金价'))
   const goldGrid = element('div', 'gold-grid')
   const homeGold = [{ ...view.xauUsd, label: '国际金价 XAU/USD' }, view.gold.find((item) => item.assetId === 'au9999')]
-  homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item, '', { showCurrentStatus: false, compactStatus: true })))
+  homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item)))
   goldSection.append(goldGrid)
   const fuelSection = element('section', 'fuel-section')
   fuelSection.append(sectionHeading('油价摘要', '广东官方最高零售价'))
