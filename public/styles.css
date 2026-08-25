@@ -67,9 +67,15 @@ section { margin-top: 31px; }
 .reference-card { min-height: 154px; }
 .reference-card .source-line, .quote-card .source-line { margin-top: 7px; }
 .fuel-section { margin-top: 18px; }
+.fuel-page-heading { margin-bottom: 12px; }
+.fuel-page-heading h2 { font-size: 18px; }
+.fuel-context { margin-top: 8px; color: #61736d; font-size: 11px; line-height: 1.55; }
+.fuel-context .fuel-note { color: #71807a; }
 .fuel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .fuel-card { min-height: 124px; padding: 13px 15px; border-radius: 15px; }
 .fuel-card strong { display: block; margin-top: 13px; font-size: 29px; letter-spacing: -.07em; }
+.fuel-card.fuel-detail { min-height: 108px; }
+.fuel-card.fuel-detail .quote-exception { margin-top: auto; padding-top: 10px; }
 .fuel-secondary { grid-column: 1 / -1; min-height: auto; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 12px; padding-block: 13px; background: #f1f2ea; }
 .fuel-secondary strong { margin: 0; font-size: 21px; }
 .fuel-secondary .quote-meta { grid-column: 1 / -1; margin-top: 0; padding-top: 0; }

@@ -197,15 +197,15 @@ function fuelMovement(item) {
 
 const QUOTE_COPY = {
   'xau-usd': { title: '国际金价', subtitle: 'XAU/USD · 国际现货黄金' },
-  au9999: { title: '国内金价', subtitle: 'Au99.99 · 上海黄金交易所' },
+  au9999: { title: '国内金价', subtitle: '上金所 Au99.99' },
   'usd-cny': { title: '美元兑人民币', subtitle: 'USD/CNY' },
-  'international-gold-cny-gram': { title: '国际金价折算', subtitle: '按美元兑人民币换算为元/克' },
+  'international-gold-cny-gram': { title: '国际金价折算', subtitle: '折算人民币/克' },
   'domestic-international-gold-spread': { title: '国内外价差', subtitle: '上金所金价 - 国际折算价' },
 }
 
 function quoteCopy(item) { return QUOTE_COPY[item.assetId] ?? { title: item.label, subtitle: null } }
 
-function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false } = {}) {
+function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false, exceptionStatusOnly = false } = {}) {
   const card = element('article', `quote-card ${className}`)
   const copy = quoteCopy(item)
   const heading = element('div', 'quote-heading')
@@ -214,7 +214,11 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
   if (copy.subtitle) card.append(element('p', 'quote-subtitle', copy.subtitle))
   card.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
   if (item.assetId === 'domestic-international-gold-spread' && item.available) card.append(element('p', 'spread-percent', Number.isFinite(item.percentage) ? `较国际折算价 ${item.percentage >= 0 ? '+' : ''}${formatter.format(item.percentage)}%` : '百分比不可用'))
-  card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
+  if (exceptionStatusOnly) {
+    if (item.displayStatus !== 'current' || !item.available) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
+  } else {
+    card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
+  }
   if (source) card.append(sourceLine(item))
   return card
 }
@@ -230,12 +234,10 @@ function brandRow(item, detailed) {
 }
 
 function fuelCard(item, detailed = false) {
-  const hasEffectiveTime = Boolean(item.effectiveAt)
-  return quoteCard(item, `fuel-card fuel-${item.priority}`, {
-    unitLabel: '元/升', source: detailed,
-    timeLabel: hasEffectiveTime ? '生效时间' : '行情时间',
-    timeValue: hasEffectiveTime ? item.effectiveAt : item.observedAt,
+  return quoteCard(item, `fuel-card fuel-${item.priority}${detailed ? ' fuel-detail' : ''}`, {
+    unitLabel: '元/升', source: false,
     showCurrentStatus: false,
+    exceptionStatusOnly: detailed,
   })
 }
 
@@ -289,9 +291,9 @@ function renderGold(view) {
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('金价趋势', '仅展示本地真实记录'))
   const goldSeries = trendPoints(latestData, ['international-gold-cny-gram', 'au9999'])
-  goldSeries[0].label = '国际折算价'
-  goldSeries[1].label = 'Au99.99'
-  historySection.append(trendCard({ title: '国际折算价与Au99.99', note: '元/克，同一坐标便于观察差距', series: goldSeries, showRange: true }))
+  goldSeries[0].label = '国际金价折算'
+  goldSeries[1].label = '国内金价'
+  historySection.append(trendCard({ title: '国际与国内金价', note: '元/克，同一坐标便于观察差距', series: goldSeries, showRange: true }))
   const spreadSeries = trendPoints(latestData, ['domestic-international-gold-spread'])
   spreadSeries[0].label = '国内外价差'
   historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true }))
@@ -307,7 +309,17 @@ function renderGold(view) {
 function renderFuel(view) {
   const fragment = document.createDocumentFragment()
   const fuelSection = element('section', 'summary-section')
-  fuelSection.append(sectionHeading('广东油价', '官方最高零售价'))
+  const currentFuel = view.fuel.find((item) => item.effectiveAt) ?? view.fuel[0]
+  const fuelHeading = element('div', 'fuel-page-heading')
+  fuelHeading.append(element('h2', '', '广东最高零售价'))
+  const fuelContext = element('div', 'fuel-context')
+  fuelContext.append(
+    element('p', '', currentFuel?.effectiveAt ? `当前执行：自${dateTime(currentFuel.effectiveAt)}起` : '当前执行：暂无可靠生效时间'),
+    element('p', '', `来源：${currentFuel?.sourceLabel ?? '广东省发展改革委'}`),
+    element('p', 'fuel-note', '政府最高零售价；各加油站实际售价可能更低。'),
+  )
+  fuelHeading.append(fuelContext)
+  fuelSection.append(fuelHeading)
   const fuelGrid = element('div', 'fuel-grid')
   view.fuel.forEach((item) => fuelGrid.append(fuelCard(item, true)))
   fuelSection.append(fuelGrid)
