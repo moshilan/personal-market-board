@@ -22,6 +22,10 @@ const TREND_COLORS = {
   'guangdong-fuel-92': '#205c50',
   'guangdong-fuel-95': '#a96f17',
   'guangdong-fuel-0-diesel': '#526f9e',
+  'brand-gold-chow-sang-sang': '#205c50',
+  'brand-gold-chow-tai-fook': '#a96f17',
+  'brand-gold-luk-fook': '#9d4a3f',
+  'brand-gold-lao-feng-xiang': '#526f9e',
 }
 
 function dateTime(value) {
@@ -82,11 +86,11 @@ function sectionHeading(title, note) {
   return heading
 }
 
-function trendPoints(data, assetIds, days = trendRangeDays) {
+function trendPoints(data, assetIds, days = trendRangeDays, historyKey = 'history') {
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1_000
   return assetIds.map((assetId) => ({
     assetId,
-    points: (data.history ?? [])
+    points: (data[historyKey] ?? [])
       .filter((item) => item.assetId === assetId && Date.parse(item.date ?? item.timestamp) >= cutoff)
       .map((item) => ({ ...item, timestamp: item.date ?? item.timestamp })),
   }))
@@ -380,7 +384,23 @@ function renderGold(view) {
   const brandList = element('div', 'brand-list')
   view.brands.forEach((item) => brandList.append(brandRow(item, true)))
   brandSection.append(brandList)
-  fragment.append(marketSection, historySection, brandSection)
+  const brandTrendSection = element('section', 'trend-section brand-trend-section')
+  brandTrendSection.append(sectionHeading('品牌金价趋势', '仅展示已结束自然日'))
+  const brandSeries = trendPoints(latestData, [
+    'brand-gold-chow-sang-sang',
+    'brand-gold-chow-tai-fook',
+    'brand-gold-luk-fook',
+    'brand-gold-lao-feng-xiang',
+  ], trendRangeDays, 'brandHistory')
+  brandSeries[0].label = '周生生'
+  brandSeries[1].label = '周大福'
+  brandSeries[2].label = '六福'
+  brandSeries[3].label = '老凤祥'
+  brandTrendSection.append(trendCard({
+    title: '四品牌金价', note: '元/克，每品牌每天最多1条真实记录', series: brandSeries, showRange: true,
+    statusNote: () => goldTrendNote(brandSeries, trendRangeDays),
+  }))
+  fragment.append(marketSection, historySection, brandSection, brandTrendSection)
   return fragment
 }
 
@@ -460,7 +480,10 @@ function selectView(viewName, focus = false) {
   pageTitle.textContent = titles[viewName][0]
   pageKicker.textContent = titles[viewName][1] ?? ''
   pageKicker.hidden = !titles[viewName][1]
-  navigationButtons.forEach((button) => button.toggleAttribute('aria-current', button.dataset.view === viewName))
+  navigationButtons.forEach((button) => {
+    if (button.dataset.view === viewName) button.setAttribute('aria-current', 'page')
+    else button.removeAttribute('aria-current')
+  })
   if (latestData) render(latestData)
   if (focus) { pageShell.scrollTo({ top: 0, behavior: 'auto' }); pageTitle.focus({ preventScroll: true }) }
 }
