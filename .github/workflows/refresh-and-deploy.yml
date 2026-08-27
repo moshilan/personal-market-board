@@ -1,6 +1,9 @@
 name: Refresh market data and deploy
 
 on:
+  push:
+    branches:
+      - master
   schedule:
     - cron: '17,47 * * * *'
   workflow_dispatch:
