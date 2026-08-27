@@ -44,6 +44,15 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '品牌金价', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价摘要', exact: true }).waitFor())
     assert.equal(await page.locator('#page-kicker').isHidden(), true)
+    assert.equal(await page.locator('.topbar').evaluate((topbar) => topbar.classList.contains('home-topbar')), true)
+    assert.match(await page.locator('#collection-status').innerText(), /^今日采集状态\s+(今日已更新 · \d{2}:\d{2}|今日待更新|数据异常)$/)
+    assert.equal(await page.locator('#collection-status').evaluate((status) => {
+      const refresh = document.querySelector('.display-refresh').getBoundingClientRect()
+      const rectangle = status.getBoundingClientRect()
+      return rectangle.left < refresh.left
+        && rectangle.right <= refresh.left
+        && Math.abs((rectangle.top + rectangle.height / 2) - (refresh.top + refresh.height / 2)) < 1
+    }), true, '首页采集状态应在刷新显示按钮左侧且同一行')
     await assertBottomNavigation(page)
     assert.equal(await page.getByRole('heading', { name: '国际金价', exact: true }).count(), 1)
     assert.equal(await page.getByRole('heading', { name: '国内金价', exact: true }).count(), 1)

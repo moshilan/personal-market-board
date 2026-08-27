@@ -1,9 +1,13 @@
+import { collectionStatusForChina } from './collection-status.mjs'
+
 const app = document.querySelector('#app')
 const readingNote = document.querySelector('#reading-note')
 const refreshButton = document.querySelector('.display-refresh')
 const pageTitle = document.querySelector('#page-title')
 const pageKicker = document.querySelector('#page-kicker')
 const pageShell = document.querySelector('.page-shell')
+const topbar = document.querySelector('.topbar')
+const collectionStatus = document.querySelector('#collection-status')
 const navigationButtons = [...document.querySelectorAll('[data-view]')]
 const formatter = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 let hasRendered = false
@@ -468,6 +472,9 @@ function renderFuel(view) {
 
 function render(data) {
   latestData = data
+  updateCollectionStatus(data.collection)
+  topbar.classList.toggle('home-topbar', activeView === 'home')
+  collectionStatus.hidden = activeView !== 'home'
   const view = data.views[activeView]
   app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : activeView === 'silver' ? renderSilver(view) : renderFuel(view))
   app.setAttribute('aria-busy', 'false')
@@ -480,12 +487,22 @@ function selectView(viewName, focus = false) {
   pageTitle.textContent = titles[viewName][0]
   pageKicker.textContent = titles[viewName][1] ?? ''
   pageKicker.hidden = !titles[viewName][1]
+  topbar.classList.toggle('home-topbar', viewName === 'home')
+  collectionStatus.hidden = viewName !== 'home'
   navigationButtons.forEach((button) => {
     if (button.dataset.view === viewName) button.setAttribute('aria-current', 'page')
     else button.removeAttribute('aria-current')
   })
   if (latestData) render(latestData)
   if (focus) { pageShell.scrollTo({ top: 0, behavior: 'auto' }); pageTitle.focus({ preventScroll: true }) }
+}
+
+function updateCollectionStatus(collection) {
+  const status = collectionStatusForChina(collection)
+  collectionStatus.replaceChildren(
+    element('span', 'collection-status-label', '今日采集状态'),
+    element('strong', `collection-status-value collection-status-${status.kind}`, status.label),
+  )
 }
 
 function setReadingNote(message, duration = 0) {

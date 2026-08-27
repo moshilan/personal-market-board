@@ -68,8 +68,17 @@ export function buildBrandTrendHistory(history, now = Date.now()) {
 export function buildDashboardResponse(store, now = Date.now()) {
   const liveSnapshot = store.latestAttempt ?? { collectedAt: null, observations: [] }
   const displaySnapshot = buildDisplaySnapshot(liveSnapshot, store)
+  const latestSuccessfulAt = Object.values(store.latestSuccessfulByAsset)
+    .map((observation) => observation.collectedAt)
+    .filter(Boolean)
+    .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null
   return {
     collectedAt: displaySnapshot.collectedAt,
+    collection: {
+      latestAttemptAt: liveSnapshot.collectedAt,
+      latestAttemptSucceeded: liveSnapshot.observations.some((observation) => observation.available),
+      latestSuccessfulAt,
+    },
     views: buildMarketViews(displaySnapshot),
     history: buildTrendHistory(store.history, now),
     brandHistory: buildBrandTrendHistory(store.history, now),

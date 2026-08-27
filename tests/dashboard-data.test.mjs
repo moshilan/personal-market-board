@@ -90,4 +90,9 @@ test('仪表盘响应保留页面当前数据并附带趋势历史', () => {
   assert.deepEqual(response.history.map((item) => item.assetId).sort(), ['domestic-international-gold-spread', 'international-gold-cny-gram'])
   assert.deepEqual(response.brandHistory.map((item) => item.assetId), ['brand-gold-chow-sang-sang'])
   assert.ok(response.views.gold)
+  assert.deepEqual(response.collection, {
+    latestAttemptAt: '2026-08-24T08:00:00.000Z',
+    latestAttemptSucceeded: false,
+    latestSuccessfulAt: null,
+  })
 })
