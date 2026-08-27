@@ -16,6 +16,9 @@ const TREND_COLORS = {
   'international-gold-cny-gram': '#205c50',
   au9999: '#a96f17',
   'domestic-international-gold-spread': '#9d4a3f',
+  'international-silver-cny-gram': '#526f9e',
+  'domestic-silver-cny-gram': '#78865b',
+  'domestic-international-silver-spread': '#9d4a3f',
   'guangdong-fuel-92': '#205c50',
   'guangdong-fuel-95': '#a96f17',
   'guangdong-fuel-0-diesel': '#526f9e',
@@ -48,7 +51,7 @@ function statusText(item) {
 
 function quoteValue(item, unitLabel) {
   if (!item.available) return '暂无可靠数据'
-  const sign = item.assetId === 'domestic-international-gold-spread' && item.value > 0 ? '+' : ''
+  const sign = item.assetId.endsWith('spread') && item.value > 0 ? '+' : ''
   return `${sign}${formatter.format(item.value)}${unitLabel ? ` ${unitLabel}` : ''}`
 }
 
@@ -67,7 +70,7 @@ function statusLine(item, timeLabel = '行情时间', timeValue = item.observedA
 }
 
 function displaySourceLabel(item, fallback = '公开报价') {
-  if (item.assetId === 'au9999') return '上海黄金交易所'
+  if (['au9999', 'ag-td', 'domestic-silver-cny-gram'].includes(item.assetId)) return '上海黄金交易所'
   return item.sourceLabel ?? fallback
 }
 
@@ -237,6 +240,10 @@ const QUOTE_COPY = {
   'usd-cny': { title: '美元兑人民币', subtitle: 'USD/CNY' },
   'international-gold-cny-gram': { title: '国际金价折算', subtitle: '折算人民币/克' },
   'domestic-international-gold-spread': { title: '国内外价差', subtitle: '上金所金价 - 国际折算价' },
+  'xag-usd': { title: '国际白银', subtitle: 'XAG/USD' },
+  'international-silver-cny-gram': { title: '国际白银折算', subtitle: '折算人民币/克' },
+  'domestic-silver-cny-gram': { title: '国内白银', subtitle: '上金所 Ag(T+D)' },
+  'domestic-international-silver-spread': { title: '国内外白银价差', subtitle: '国内白银 - 国际折算价' },
 }
 
 function quoteCopy(item) { return QUOTE_COPY[item.assetId] ?? { title: item.label, subtitle: null } }
@@ -244,7 +251,7 @@ function quoteCopy(item) { return QUOTE_COPY[item.assetId] ?? { title: item.labe
 function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false, exceptionStatusOnly = false, showExceptionalMeta = false } = {}) {
   const card = element('article', `quote-card ${className}`)
   const copy = quoteCopy(item)
-  const isSpread = item.assetId === 'domestic-international-gold-spread'
+  const isSpread = item.assetId.endsWith('spread')
   const heading = element('div', 'quote-heading')
   heading.append(element('h3', '', copy.title))
   if (isSpread) heading.append(element('span', 'spread-heading-note', copy.subtitle))
@@ -256,7 +263,7 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
     const amount = element('div', 'spread-metric')
     amount.append(element('strong', 'quote-value', quoteValue(item)), element('span', 'spread-unit', '元/克'))
     const percentage = element('div', 'spread-metric spread-percentage')
-    percentage.append(element('strong', 'spread-percent-value', Number.isFinite(item.percentage) ? `${item.percentage >= 0 ? '+' : ''}${formatter.format(item.percentage)}%` : '百分比不可用'), element('span', 'spread-context', '相对国际金价'))
+    percentage.append(element('strong', 'spread-percent-value', Number.isFinite(item.percentage) ? `${item.percentage >= 0 ? '+' : ''}${formatter.format(item.percentage)}%` : '百分比不可用'), element('span', 'spread-context', item.assetId.includes('silver') ? '相对国际白银' : '相对国际金价'))
     values.append(amount, percentage)
     card.append(values)
   } else {
@@ -269,7 +276,7 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
   } else {
     card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   }
-  if (source && !['international-gold-cny-gram', 'au9999'].includes(item.assetId) && item.sourceLabel !== '公式计算') card.append(sourceLine(item))
+  if (source && !['international-gold-cny-gram', 'au9999', 'international-silver-cny-gram', 'domestic-silver-cny-gram', 'ag-td'].includes(item.assetId) && item.sourceLabel !== '公式计算') card.append(sourceLine(item))
   return card
 }
 
@@ -331,13 +338,18 @@ function renderHome(view) {
   const homeGold = [{ ...view.xauUsd, label: '国际金价 XAU/USD' }, view.gold.find((item) => item.assetId === 'au9999')]
   homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item, 'home-quote', { showExceptionalMeta: true })))
   goldSection.append(goldGrid)
+  const silverSection = element('section', 'summary-section')
+  silverSection.append(sectionHeading('白银摘要', '国际与国内白银'))
+  const silverGrid = element('div', 'gold-grid')
+  view.silver.forEach((item) => silverGrid.append(quoteCard(item, 'home-quote', { showExceptionalMeta: true })))
+  silverSection.append(silverGrid)
   const fuelSection = element('section', 'fuel-section')
   fuelSection.append(sectionHeading('油价摘要', '广东官方最高零售价'))
   const fuelGrid = element('div', 'fuel-grid')
   const homeFuel = latestData?.views?.fuel?.fuel ?? view.fuel
   homeFuel.forEach((item) => fuelGrid.append(fuelCard(item)))
   fuelSection.append(fuelGrid)
-  fragment.append(goldSection, brandSummary(view), fuelSection)
+  fragment.append(goldSection, silverSection, brandSummary(view), fuelSection)
   return fragment
 }
 
@@ -369,6 +381,32 @@ function renderGold(view) {
   view.brands.forEach((item) => brandList.append(brandRow(item, true)))
   brandSection.append(brandList)
   fragment.append(marketSection, historySection, brandSection)
+  return fragment
+}
+
+function renderSilver(view) {
+  const fragment = document.createDocumentFragment()
+  const marketSection = element('section', 'summary-section')
+  const marketQuotes = [...view.silver, ...view.references]
+  const marketDate = sharedQuoteDay(marketQuotes)
+  marketSection.append(sectionHeading('白银参考', marketDate ? `数据日期：${marketDate}` : '白银与价差'))
+  const silverGrid = element('div', 'gold-grid')
+  view.silver.forEach((item) => silverGrid.append(quoteCard(item, item.assetId.endsWith('spread') ? 'gold-spread silver-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
+  marketSection.append(silverGrid)
+  const references = element('div', 'reference-list')
+  view.references.forEach((item) => references.append(quoteCard(item, 'reference-card', { source: true, unitLabel: item.assetId === 'usd-cny' ? '' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
+  marketSection.append(references)
+  const historySection = element('section', 'trend-section')
+  historySection.append(sectionHeading('白银趋势', '仅展示本地真实记录'))
+  const silverSeries = trendPoints(latestData, ['international-silver-cny-gram', 'domestic-silver-cny-gram'])
+  silverSeries[0].label = '国际白银折算'
+  silverSeries[1].label = '国内白银'
+  historySection.append(trendCard({ title: '国际与国内白银', note: '元/克，同一坐标便于观察差距', series: silverSeries, showRange: true, statusNote: () => goldTrendNote(silverSeries, trendRangeDays) }))
+  const spreadSeries = trendPoints(latestData, ['domestic-international-silver-spread'])
+  spreadSeries[0].label = '国内外白银价差'
+  const currentSpread = view.silver.find((item) => item.assetId === 'domestic-international-silver-spread')
+  historySection.append(trendCard({ title: '国内外白银价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true, statusNote: () => spreadTrendNote(spreadSeries, currentSpread, trendRangeDays) }))
+  fragment.append(marketSection, historySection)
   return fragment
 }
 
@@ -411,14 +449,14 @@ function renderFuel(view) {
 function render(data) {
   latestData = data
   const view = data.views[activeView]
-  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : renderFuel(view))
+  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : activeView === 'silver' ? renderSilver(view) : renderFuel(view))
   app.setAttribute('aria-busy', 'false')
   hasRendered = true
 }
 
 function selectView(viewName, focus = false) {
   activeView = viewName
-  const titles = { home: ['日常行情', null], gold: ['金价', '国际、国内与品牌金价'], fuel: ['广东油价', null] }
+  const titles = { home: ['日常行情', null], gold: ['金价', '国际、国内与品牌金价'], silver: ['白银', '国际与国内白银'], fuel: ['广东油价', null] }
   pageTitle.textContent = titles[viewName][0]
   pageKicker.textContent = titles[viewName][1] ?? ''
   pageKicker.hidden = !titles[viewName][1]

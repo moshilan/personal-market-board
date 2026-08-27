@@ -7,10 +7,15 @@ export const HISTORY_RETENTION_MS = 31 * 24 * 60 * 60 * 1_000
 
 const ASSET_IDS = {
   'XAU/USD': 'xau-usd',
+  'XAG/USD': 'xag-usd',
   'USD/CNY': 'usd-cny',
   'Au99.99': 'au9999',
   '国际黄金人民币折算价': 'international-gold-cny-gram',
   '国内外价差': 'domestic-international-gold-spread',
+  'Ag(T+D)': 'ag-td',
+  '国际白银人民币折算价': 'international-silver-cny-gram',
+  '国内白银': 'domestic-silver-cny-gram',
+  '国内外白银价差': 'domestic-international-silver-spread',
   '周生生': 'brand-gold-chow-sang-sang',
   '周大福': 'brand-gold-chow-tai-fook',
   '六福珠宝': 'brand-gold-luk-fook',
@@ -100,18 +105,23 @@ function availableObservation(record, derivedFromIds) {
 export function normalizeSnapshot(rawSnapshot) {
   const rawRecords = [
     rawSnapshot.xauUsd,
+    rawSnapshot.xagUsd,
     rawSnapshot.usdCny,
     rawSnapshot.au9999,
+    rawSnapshot.agTd,
     rawSnapshot.internationalGoldCny,
     rawSnapshot.spread,
+    rawSnapshot.internationalSilverCny,
+    rawSnapshot.domesticSilverCny,
+    rawSnapshot.silverSpread,
     ...rawSnapshot.brands,
     ...rawSnapshot.guangdongFuel,
   ]
-  const baseRecords = rawRecords.filter((record) => record.sourceUrl !== 'derived')
+  const baseRecords = rawRecords.filter(Boolean).filter((record) => record.sourceUrl !== 'derived')
   const observations = baseRecords.map((record) => record.available ? availableObservation(record, []) : unavailableObservation(record))
   const idsByName = new Map(baseRecords.map((record) => [record.name, observationId(record)]))
 
-  for (const record of rawRecords.filter((item) => item.sourceUrl === 'derived')) {
+  for (const record of rawRecords.filter(Boolean).filter((item) => item.sourceUrl === 'derived')) {
     const recordWithCollectionTime = { ...record, collectedAt: record.collectedAt ?? rawSnapshot.collectedAt }
     const derivedFromIds = record.available
       ? record.inputs.map((input) => idsByName.get(input.name)).filter(Boolean)

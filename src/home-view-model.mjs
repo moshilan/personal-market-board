@@ -9,6 +9,17 @@ const REFERENCE_ASSETS = [
   { assetId: 'usd-cny', label: 'USD/CNY', unitLabel: 'CNY/美元' },
 ]
 
+const SILVER_ASSETS = [
+  { assetId: 'international-silver-cny-gram', label: '国际白银人民币折算', unitLabel: '元/克' },
+  { assetId: 'domestic-silver-cny-gram', label: '国内白银', unitLabel: '元/克' },
+  { assetId: 'domestic-international-silver-spread', label: '国内外白银价差', unitLabel: '元/克' },
+]
+
+const SILVER_REFERENCES = [
+  { assetId: 'xag-usd', label: '国际白银 XAG/USD', unitLabel: 'USD/盎司' },
+  { assetId: 'usd-cny', label: 'USD/CNY', unitLabel: 'CNY/美元' },
+]
+
 const BRAND_ASSETS = [
   { assetId: 'brand-gold-chow-sang-sang', label: '周生生' },
   { assetId: 'brand-gold-chow-tai-fook', label: '周大福' },
@@ -47,12 +58,15 @@ function decorate(definition, byAsset) {
 export function buildMarketViews(displaySnapshot) {
   const byAsset = new Map((displaySnapshot?.observations ?? []).map((observation) => [observation.assetId, observation]))
   const gold = GOLD_ASSETS.map((definition) => decorate(definition, byAsset))
+  const silver = SILVER_ASSETS.map((definition) => decorate(definition, byAsset))
+  const silverReferences = SILVER_REFERENCES.map((definition) => decorate(definition, byAsset))
   const references = REFERENCE_ASSETS.map((definition) => decorate(definition, byAsset))
   const brands = BRAND_ASSETS.map((definition) => decorate(definition, byAsset))
   const fuel = FUEL_ASSETS.map((definition) => decorate(definition, byAsset))
   return {
-    home: { gold, xauUsd: references[0], brands, fuel: fuel.slice(0, 2) },
+    home: { gold, xauUsd: references[0], silver: silver.slice(0, 2), brands, fuel: fuel.slice(0, 2) },
     gold: { gold, references, brands },
+    silver: { silver, references: silverReferences },
     fuel: { fuel },
   }
 }

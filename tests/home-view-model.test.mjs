@@ -35,8 +35,19 @@ test('金价与油价视图保留完整内容，首页只保留92与95摘要', (
   ] })
   assert.equal(views.home.fuel.length, 2)
   assert.equal(views.gold.references.length, 2)
+  assert.equal(views.silver.silver.length, 3)
+  assert.equal(views.silver.references[0].assetId, 'xag-usd')
   assert.equal(views.fuel.fuel.length, 3)
   assert.equal(views.fuel.fuel[0].effectiveAt, null)
+})
+
+test('首页展示国际、国内白银的紧凑摘要', () => {
+  const home = buildHomeView({ observations: [
+    observation('international-silver-cny-gram', 15.96),
+    observation('domestic-silver-cny-gram', 16.711),
+  ] })
+  assert.deepEqual(home.silver.map((item) => item.value), [15.96, 16.711])
+  assert.deepEqual(home.silver.map((item) => item.unitLabel), ['元/克', '元/克'])
 })
 
 test('首页模型保留缓存状态和原始行情时间', () => {
