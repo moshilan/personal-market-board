@@ -34,11 +34,25 @@ jobs:
       - name: Restore the previous market snapshot
         shell: bash
         run: |
-          if git fetch origin market-data; then
+          if git ls-remote --exit-code --heads origin market-data > /dev/null 2>&1; then
             mkdir -p data
-            git show FETCH_HEAD:market-data.json > data/market-data.json
+            if ! git fetch origin market-data; then
+              echo 'Failed to fetch the existing market-data branch' >&2
+              exit 1
+            fi
+            if ! git show FETCH_HEAD:market-data.json > data/market-data.json.tmp; then
+              echo 'Failed to restore market-data.json from the existing market-data branch' >&2
+              exit 1
+            fi
+            mv data/market-data.json.tmp data/market-data.json
           else
-            echo 'No previous market-data branch yet'
+            status=$?
+            if [ "$status" -eq 2 ]; then
+              echo 'No previous market-data branch yet'
+            else
+              echo 'Failed to determine whether the market-data branch exists' >&2
+              exit "$status"
+            fi
           fi
 
       - name: Run Node tests
