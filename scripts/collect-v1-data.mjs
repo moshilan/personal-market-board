@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { persistSnapshot } from '../src/market-data-store.mjs'
+import { EXCHANGE_RATES_SOURCE_URL, parseExchangeRateFun, unavailableExchangeRates } from '../src/exchange-rates.mjs'
 import { deriveDomesticSilverCny, deriveInternationalSilverCny, deriveSilverSpread } from '../src/silver-calculations.mjs'
 
 const OUNCE_TO_GRAM = 31.1034768
@@ -12,6 +13,7 @@ const SOURCES = {
   xauUsdPrimary: 'https://xaus.com/api/v1/spot',
   xauUsdBackup: 'https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT&include=sources',
   usdCny: 'https://www.currencyexchangetool.com/api/v1/convert?amount=1&from=USD&to=CNY',
+  exchangeRates: EXCHANGE_RATES_SOURCE_URL,
   au9999: 'https://www.sge.com.cn/h5_sjzx/yshq',
   agTd: 'https://www.sge.com.cn/h5_sjzx/yshq',
   chowSangSang: 'https://cn.chowsangsang.com/gold-info',
@@ -157,6 +159,14 @@ async function collectUsdCny(collectedAt) {
     }
   } catch (error) {
     return unavailable('USD/CNY', SOURCES.usdCny, collectedAt.toISOString(), error.message)
+  }
+}
+
+async function collectExchangeRates(collectedAt) {
+  try {
+    return parseExchangeRateFun(await getJson(SOURCES.exchangeRates), collectedAt.toISOString(), collectedAt)
+  } catch (error) {
+    return unavailableExchangeRates(collectedAt.toISOString(), `ExchangeRate.fun请求失败：${error.message}`)
   }
 }
 
@@ -345,11 +355,12 @@ const unavailableBrands = (reason) => ['周生生', '周大福', '六福珠宝',
 const unavailableFuel = (reason) => ['92号汽油', '95号汽油', '0号柴油', '98号汽油'].map((product) => (
   unavailable(product, SOURCES.guangdongFuel, collectedAt.toISOString(), reason)
 ))
-const [xauUsd, xagUsd, usdCny, au9999, agTd, brands, guangdongFuel] = simulateCollectionFailure
+const [xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, brands, guangdongFuel] = simulateCollectionFailure
   ? [
       unavailable('XAU/USD', SOURCES.xauUsdPrimary, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('XAG/USD', SOURCES.xauUsdPrimary, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('USD/CNY', SOURCES.usdCny, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
+      unavailableExchangeRates(collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('Au99.99', SOURCES.au9999, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('Ag(T+D)', SOURCES.agTd, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailableBrands('验证模拟：全部实时采集失败'),
@@ -359,6 +370,7 @@ const [xauUsd, xagUsd, usdCny, au9999, agTd, brands, guangdongFuel] = simulateCo
       collectXauUsd(collectedAt, xauOptions),
       collectXagUsd(collectedAt),
       collectUsdCny(collectedAt),
+      collectExchangeRates(collectedAt),
       collectAu9999(collectedAt),
       collectAgTd(collectedAt),
       collectBrands(collectedAt).catch((error) => unavailableBrands(error.message)),
@@ -370,6 +382,6 @@ const internationalSilverCny = deriveInternationalSilverCny(xagUsd, usdCny, coll
 const domesticSilverCny = deriveDomesticSilverCny(agTd, collectedAt)
 const silverSpread = deriveSilverSpread(domesticSilverCny, internationalSilverCny, collectedAt)
 
-const rawSnapshot = { collectedAt: collectedAt.toISOString(), xauUsd, xagUsd, usdCny, au9999, agTd, internationalGoldCny, spread, internationalSilverCny, domesticSilverCny, silverSpread, brands, guangdongFuel }
+const rawSnapshot = { collectedAt: collectedAt.toISOString(), xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, internationalGoldCny, spread, internationalSilverCny, domesticSilverCny, silverSpread, brands, guangdongFuel }
 const result = await persistSnapshot(rawSnapshot, DEFAULT_STORE_PATH)
 console.log(JSON.stringify({ liveSnapshot: result.liveSnapshot, displaySnapshot: result.displaySnapshot }, null, 2))

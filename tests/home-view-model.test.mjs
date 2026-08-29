@@ -34,8 +34,9 @@ test('金价与油价视图保留完整内容，首页只保留92与95摘要', (
     observation('guangdong-fuel-0-diesel', 7.1),
   ] })
   assert.equal(views.home.fuel.length, 2)
-  assert.equal(views.gold.references.length, 2)
+  assert.equal(views.gold.references.length, 1)
   assert.equal(views.silver.silver.length, 3)
+  assert.equal(views.silver.references.length, 1)
   assert.equal(views.silver.references[0].assetId, 'xag-usd')
   assert.equal(views.fuel.fuel.length, 3)
   assert.equal(views.fuel.fuel[0].effectiveAt, null)

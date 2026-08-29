@@ -80,6 +80,7 @@ export function buildDashboardResponse(store, now = Date.now()) {
       latestSuccessfulAt,
     },
     views: buildMarketViews(displaySnapshot),
+    exchangeRates: displaySnapshot.exchangeRates,
     history: buildTrendHistory(store.history, now),
     brandHistory: buildBrandTrendHistory(store.history, now),
   }

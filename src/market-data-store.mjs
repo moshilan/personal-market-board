@@ -134,6 +134,7 @@ export function normalizeSnapshot(rawSnapshot) {
     schemaVersion: STORE_VERSION,
     collectedAt: rawSnapshot.collectedAt,
     observations,
+    exchangeRates: rawSnapshot.exchangeRates ?? null,
   }
 }
 
@@ -143,6 +144,7 @@ export function createEmptyStore() {
     latestAttempt: null,
     latestSuccessfulByAsset: {},
     history: [],
+    latestExchangeRates: null,
   }
 }
 
@@ -199,13 +201,14 @@ export function buildDisplaySnapshot(liveSnapshot, store) {
       liveReason: liveObservation.reason,
     }
   })
-  return { collectedAt: liveSnapshot.collectedAt, observations }
+  return { collectedAt: liveSnapshot.collectedAt, observations, exchangeRates: liveSnapshot.exchangeRates ?? store.latestExchangeRates ?? null }
 }
 
 export async function persistSnapshot(rawSnapshot, storePath) {
   const liveSnapshot = normalizeSnapshot(rawSnapshot)
   const store = await readStore(storePath)
   store.latestAttempt = liveSnapshot
+  store.latestExchangeRates = liveSnapshot.exchangeRates ?? store.latestExchangeRates ?? null
   for (const observation of liveSnapshot.observations) {
     if (!observation.available) continue
     store.latestSuccessfulByAsset[observation.assetId] = observation

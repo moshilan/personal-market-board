@@ -1,4 +1,5 @@
 import { collectionStatusForChina } from './collection-status.mjs'
+import { SUPPORTED_CURRENCIES, convertExchangeRate } from './exchange-rates.js'
 
 const app = document.querySelector('#app')
 const readingNote = document.querySelector('#reading-note')
@@ -260,12 +261,14 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
   const card = element('article', `quote-card ${className}`)
   const copy = quoteCopy(item)
   const isSpread = item.assetId.endsWith('spread')
+  const isSpot = ['xau-usd', 'xag-usd'].includes(item.assetId)
   const heading = element('div', 'quote-heading')
   heading.append(element('h3', '', copy.title))
   if (isSpread) heading.append(element('span', 'spread-heading-note', copy.subtitle))
+  else if (isSpot) heading.append(element('span', 'spot-code', copy.subtitle))
   else if (unitLabel) heading.append(element('span', 'unit', unitLabel))
   card.append(heading)
-  if (copy.subtitle && !isSpread) card.append(element('p', 'quote-subtitle', copy.subtitle))
+  if (copy.subtitle && !isSpread && !isSpot) card.append(element('p', 'quote-subtitle', copy.subtitle))
   if (isSpread && item.available) {
     const values = element('div', 'spread-values')
     const amount = element('div', 'spread-metric')
@@ -276,6 +279,7 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
     card.append(values)
   } else {
     card.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
+    if (isSpot && item.available) card.append(element('p', 'spot-unit', '美元/盎司'))
   }
   if (exceptionStatusOnly) {
     if (item.displayStatus !== 'current' || !item.available) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
@@ -371,7 +375,7 @@ function renderGold(view) {
   view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(goldGrid)
   const references = element('div', 'reference-list')
-  view.references.forEach((item) => references.append(quoteCard(item, 'reference-card', { source: true, unitLabel: item.assetId === 'usd-cny' ? '' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
+  view.references.forEach((item) => references.append(quoteCard(item, `reference-card ${['xau-usd', 'xag-usd'].includes(item.assetId) ? 'spot-quote' : ''}`, { source: true, unitLabel: item.unitLabel === 'USD/盎司' ? '美元/盎司' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(references)
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('金价趋势', '仅展示本地真实记录'))
@@ -418,7 +422,7 @@ function renderSilver(view) {
   view.silver.forEach((item) => silverGrid.append(quoteCard(item, item.assetId.endsWith('spread') ? 'gold-spread silver-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(silverGrid)
   const references = element('div', 'reference-list')
-  view.references.forEach((item) => references.append(quoteCard(item, 'reference-card', { source: true, unitLabel: item.assetId === 'usd-cny' ? '' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
+  view.references.forEach((item) => references.append(quoteCard(item, `reference-card ${['xau-usd', 'xag-usd'].includes(item.assetId) ? 'spot-quote' : ''}`, { source: true, unitLabel: item.unitLabel === 'USD/盎司' ? '美元/盎司' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(references)
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('白银趋势', '仅展示本地真实记录'))
@@ -470,20 +474,48 @@ function renderFuel(view) {
   return fragment
 }
 
+function renderExchange(view) {
+  const rates = view.exchangeRates
+  const fragment = document.createDocumentFragment()
+  const converterSection = element('section', 'exchange-section')
+  converterSection.append(sectionHeading('货币换算器', rates?.available ? `数据时间：${dateTime(rates.sourceObservedAt)}` : '当前汇率不可用'))
+  const form = element('div', 'exchange-converter')
+  const amount = element('input', 'exchange-amount'); amount.type = 'number'; amount.inputMode = 'decimal'; amount.min = '0'; amount.step = 'any'; amount.placeholder = '输入金额'; amount.value = '1'; amount.setAttribute('aria-label', '金额')
+  const from = element('select', 'exchange-select'); from.setAttribute('aria-label', '起始币种')
+  const to = element('select', 'exchange-select'); to.setAttribute('aria-label', '目标币种')
+  SUPPORTED_CURRENCIES.forEach(({ code, name }) => { from.append(new Option(`${code} ${name}`, code)); to.append(new Option(`${code} ${name}`, code)) })
+  from.value = 'CNY'; to.value = 'USD'
+  const swap = element('button', 'exchange-swap', '交换'); swap.type = 'button'; swap.setAttribute('aria-label', '交换币种')
+  const result = element('output', 'exchange-result'); result.setAttribute('aria-live', 'polite')
+  const update = () => { const converted = convertExchangeRate(amount.value, from.value, to.value, rates); result.textContent = converted === null ? '暂无可靠汇率' : `${converted.toLocaleString('zh-CN', { maximumFractionDigits: 6 })} ${to.value}` }
+  amount.addEventListener('input', update); from.addEventListener('change', update); to.addEventListener('change', update)
+  swap.addEventListener('click', () => { const current = from.value; from.value = to.value; to.value = current; update(); from.focus() })
+  form.append(amount, from, swap, to, result); converterSection.append(form)
+  const listSection = element('section', 'exchange-section'); listSection.append(sectionHeading('常用汇率', '以人民币为参照'))
+  const list = element('div', 'exchange-list')
+  SUPPORTED_CURRENCIES.forEach(({ code, name, displayUnit }) => {
+    const row = element('article', 'exchange-row'); const unit = displayUnit
+    const value = rates?.available && rates.rates?.[code] ? (code === 'CNY' ? unit : rates.rates.CNY / rates.rates[code] * unit) : null
+    row.append(element('div', 'exchange-currency', `${code} ${name}`), element('strong', value === null ? 'unavailable-value' : '', value === null ? '暂无' : `${unit} ${code} = ${value.toLocaleString('zh-CN', { maximumFractionDigits: 6 })} 元`)); list.append(row)
+  })
+  listSection.append(list, element('p', 'exchange-source', rates?.available ? `来源：${rates.sourceName} · 更新时间：${dateTime(rates.sourceObservedAt)}` : (rates?.reason ?? '暂未取得可靠汇率数据')))
+  fragment.append(converterSection, listSection); update(); return fragment
+}
+
 function render(data) {
   latestData = data
   updateCollectionStatus(data.collection)
   topbar.classList.toggle('home-topbar', activeView === 'home')
   collectionStatus.hidden = activeView !== 'home'
   const view = data.views[activeView]
-  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : activeView === 'silver' ? renderSilver(view) : renderFuel(view))
+  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : activeView === 'silver' ? renderSilver(view) : activeView === 'exchange' ? renderExchange(view) : renderFuel(view))
   app.setAttribute('aria-busy', 'false')
   hasRendered = true
 }
 
 function selectView(viewName, focus = false) {
   activeView = viewName
-  const titles = { home: ['日常行情', null], gold: ['金价', '国际、国内与品牌金价'], silver: ['白银', '国际与国内白银'], fuel: ['广东油价', null] }
+  const titles = { home: ['日常行情', null], gold: ['金价', '国际、国内与品牌金价'], silver: ['白银', '国际与国内白银'], exchange: ['汇率', null], fuel: ['广东油价', null] }
   pageTitle.textContent = titles[viewName][0]
   pageKicker.textContent = titles[viewName][1] ?? ''
   pageKicker.hidden = !titles[viewName][1]
