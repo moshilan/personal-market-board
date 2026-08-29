@@ -35,7 +35,9 @@ try {
   for (const width of [360, 393]) {
     const page = await browser.newPage({ viewport: { width, height: 844 }, deviceScaleFactor: 1 })
     const consoleErrors = []
+    const thirdPartyRequests = []
     page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()) })
+    page.on('request', (request) => { if (/exchangerate\.fun|currencyexchangetool\.com/.test(request.url())) thirdPartyRequests.push(request.url()) })
     await page.goto(baseUrl, { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: '刷新显示' }).click()
     await page.waitForLoadState('networkidle')
@@ -184,6 +186,13 @@ try {
     assert.equal(await page.locator('.bottom-nav button').count(), 5)
     assert.equal(await page.locator('.exchange-select').count(), 2)
     assert.equal(await page.getByRole('button', { name: '交换币种' }).count(), 1)
+    assert.equal(await page.getByRole('button', { name: '交换币种' }).innerText(), '⇄')
+    assert.match(await page.locator('.exchange-source').innerText(), /^来源：ExchangeRate\.fun · 更新时间：8月30日 \d{1,2}:\d{2}$/)
+    assert.equal(await page.locator('.exchange-select').evaluateAll((items) => {
+      const widths = items.map((item) => Math.round(item.getBoundingClientRect().width))
+      const swap = document.querySelector('.exchange-swap').getBoundingClientRect()
+      return widths[0] === widths[1] && Math.round(swap.width) === 48 && swap.left > items[0].getBoundingClientRect().right && swap.right < items[1].getBoundingClientRect().left
+    }), true)
     await page.locator('.exchange-amount').fill('100')
     await page.locator('.exchange-select').nth(0).selectOption('JPY')
     await page.locator('.exchange-select').nth(1).selectOption('USD')
@@ -191,8 +200,10 @@ try {
     await page.getByRole('button', { name: '交换币种' }).click()
     assert.equal(await page.locator('.exchange-select').nth(0).inputValue(), 'USD')
     assert.equal(await page.locator('.exchange-select').nth(1).inputValue(), 'JPY')
+    for (const code of ['CNY', 'SGD', 'KRW', 'HKD', 'GBP']) await page.locator('.exchange-select').nth(0).selectOption(code)
     await page.locator('.exchange-amount').fill('-1')
     assert.equal(await page.locator('.exchange-result').innerText(), '暂无可靠汇率')
+    assert.deepEqual(thirdPartyRequests, [])
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await page.getByRole('button', { name: '油价' }).click()
     assert.equal(await page.locator('#collection-status').isHidden(), true, '油价页不应显示今日采集状态')

@@ -141,9 +141,12 @@ section { margin-top: 31px; }
 .spot-unit { margin-top: 6px; color: #61736d; font-size: 12px; }
 .spot-quote .unit { display: none; }
 .exchange-section { margin-top: 26px; }
-.exchange-converter { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto minmax(0, 1fr); gap: 9px; align-items: center; padding: 14px; border: 1px solid #d9d8cb; border-radius: 17px; background: #fffdf7; box-shadow: 0 2px 7px rgb(26 54 48 / 4%); }
+.exchange-converter { display: grid; grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr); gap: 9px; align-items: center; padding: 14px; border: 1px solid #d9d8cb; border-radius: 17px; background: #fffdf7; box-shadow: 0 2px 7px rgb(26 54 48 / 4%); }
+.exchange-amount { grid-column: 1 / -1; }
 .exchange-amount, .exchange-select { width: 100%; min-height: 44px; padding: 0 10px; color: #182d29; border: 1px solid #c9d2ca; border-radius: 11px; background: #f7f7f0; font-size: 14px; }
-.exchange-swap { min-height: 44px; padding: 0 10px; color: #245a4f; border: 1px solid #b8cec0; border-radius: 11px; background: #e7eee7; font-weight: 700; }
+.exchange-swap { grid-column: 2; min-height: 44px; padding: 0; color: #245a4f; border: 1px solid #b8cec0; border-radius: 11px; background: #e7eee7; font-size: 25px; line-height: 1; font-weight: 700; }
+.exchange-select:first-of-type { grid-column: 1; }
+.exchange-select:last-of-type { grid-column: 3; }
 .exchange-result { grid-column: 1 / -1; min-height: 34px; padding-top: 8px; color: #205c50; font-size: 24px; font-weight: 700; letter-spacing: -.04em; }
 .exchange-list { overflow: hidden; border: 1px solid #d9d8cb; border-radius: 15px; background: #fffdf7; }
 .exchange-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 13px 15px; border-bottom: 1px solid #e4e1d7; }
@@ -151,5 +154,5 @@ section { margin-top: 31px; }
 .exchange-currency { color: #53645e; font-size: 14px; font-weight: 700; }
 .exchange-row strong { font-size: 15px; text-align: right; }
 .exchange-source { margin: 9px 2px 0; color: #61736d; font-size: 11px; }
-@media (max-width: 390px) { .exchange-converter { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } .exchange-amount { grid-column: 1 / -1; } .exchange-result { font-size: 21px; } .bottom-nav { padding-left: 4px; padding-right: 4px; } .bottom-nav button { font-size: 11px; } }
+@media (max-width: 390px) { .exchange-result { font-size: 21px; } .bottom-nav { padding-left: 4px; padding-right: 4px; } .bottom-nav button { font-size: 11px; } }
 @media (min-width: 540px) { .page-shell { padding-left: 24px; padding-right: 24px; } .gold-grid { gap: 14px; } }

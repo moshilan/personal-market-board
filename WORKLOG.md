@@ -162,3 +162,9 @@
 - 新增ExchangeRate.fun单次USD基准批量汇率模型，保存`sourceObservedAt`、`collectedAt`和`sourceTimePrecision`，支持8个常用币种及同批交叉换算；Currency Exchange Tool继续保留为USD/CNY既有来源。
 - 新增独立汇率页、金额换算器、交换币种和常用汇率列表，底部导航扩展为五项；金价、白银页移除USD/CNY参考卡，XAU/XAG卡改为全宽并保留来源与美元/盎司单位。
 - 补充汇率模型和浏览器交互测试，25项Node测试、静态构建、`git diff --check`及360px、393px移动端检查通过。
+
+## 2026-08-30 04:10
+
+- 定位线上汇率页“HTTP请求失败”根因：前端仅读取本站`api/home.json`，GitHub Actions访问ExchangeRate.fun原始批量路径返回HTTP 403，导致线上汇率对象不可用；手机端未直连第三方。
+- 主源仍为ExchangeRate.fun，仅将批量URL补充目标币种参数以兼容Actions出口；本地采集验证恢复8币种可用。
+- 汇率不可用时改为用户可读状态文案；交换按钮改为`⇄`，换算器调整为两侧等宽、中间固定48px按钮；补充第三方请求为零、按钮和移动端宽度回归断言。

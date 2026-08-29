@@ -1,4 +1,4 @@
-export const EXCHANGE_RATES_SOURCE_URL = 'https://api.exchangerate.fun/latest?base=USD'
+export const EXCHANGE_RATES_SOURCE_URL = 'https://api.exchangerate.fun/latest?base=USD&symbols=CNY,HKD,JPY,EUR,GBP,KRW,SGD'
 export const SUPPORTED_CURRENCIES = [
   { code: 'CNY', name: '人民币', displayUnit: 1 }, { code: 'USD', name: '美元', displayUnit: 1 },
   { code: 'HKD', name: '港币', displayUnit: 1 }, { code: 'JPY', name: '日元', displayUnit: 100 },
