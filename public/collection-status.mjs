@@ -29,10 +29,10 @@ export function collectionStatusForChina(collection = {}, now = new Date()) {
   const today = chinaDay(now)
 
   if (latestSuccessfulAt && chinaDay(latestSuccessfulAt) === today) {
-    return { kind: 'updated', label: `今日已更新 · ${chinaTime(latestSuccessfulAt)}` }
+    return { kind: 'updated', label: `已更新 · ${chinaTime(latestSuccessfulAt)}` }
   }
   if (collection.latestAttemptAt && (!latestAttemptAt || (chinaDay(latestAttemptAt) === today && !collection.latestAttemptSucceeded))) {
     return { kind: 'error', label: '数据异常' }
   }
-  return { kind: 'pending', label: '今日待更新' }
+  return { kind: 'pending', label: '待更新' }
 }

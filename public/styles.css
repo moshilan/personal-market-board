@@ -24,7 +24,7 @@ h2 { font-size: 21px; letter-spacing: -.04em; }
 h3 { font-size: 15px; }
 .display-refresh { min-height: 44px; padding: 0 15px; color: #245a4f; background: #e7eee7; border: 1px solid #b8cec0; border-radius: 12px; font-weight: 700; }
 .display-refresh:disabled { opacity: .55; }
-.collection-status { display: flex; align-items: baseline; gap: 7px; min-width: 0; color: #61736d; font-size: 12px; line-height: 1.2; white-space: nowrap; }
+.collection-status:not([hidden]) { display: flex; align-items: baseline; gap: 7px; min-width: 0; color: #61736d; font-size: 12px; line-height: 1.2; white-space: nowrap; }
 .collection-status-label { flex: none; }
 .collection-status-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #245a4f; font-size: 12px; }
 .collection-status-pending { color: #81631b; }

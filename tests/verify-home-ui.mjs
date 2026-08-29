@@ -45,7 +45,7 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价摘要', exact: true }).waitFor())
     assert.equal(await page.locator('#page-kicker').isHidden(), true)
     assert.equal(await page.locator('.topbar').evaluate((topbar) => topbar.classList.contains('home-topbar')), true)
-    assert.match(await page.locator('#collection-status').innerText(), /^今日采集状态\s+(今日已更新 · \d{2}:\d{2}|今日待更新|数据异常)$/)
+    assert.match(await page.locator('#collection-status').innerText(), /^今日采集状态\s+(已更新 · \d{2}:\d{2}|待更新|数据异常)$/)
     assert.equal(await page.locator('#collection-status').evaluate((status) => {
       const refresh = document.querySelector('.display-refresh').getBoundingClientRect()
       const rectangle = status.getBoundingClientRect()
@@ -98,6 +98,7 @@ try {
     await page.getByRole('button', { name: '刷新显示' }).click()
     assert.deepEqual(consoleErrors, [])
     await page.getByRole('button', { name: '金价' }).click()
+    assert.equal(await page.locator('#collection-status').isHidden(), true, '金价页不应显示今日采集状态')
     assert.equal(await page.getByText('国际、国内与品牌金价', { exact: true }).isVisible(), true)
     await assertBottomNavigation(page)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '金价参考', exact: true }).waitFor())
@@ -165,6 +166,7 @@ try {
       return document.querySelector('.brand-row:last-child').getBoundingClientRect().bottom <= navigationTop
     }), true, '金价页最后一个品牌不应被底部导航遮挡')
     await page.getByRole('button', { name: '白银' }).click()
+    assert.equal(await page.locator('#collection-status').isHidden(), true, '白银页不应显示今日采集状态')
     assert.equal(await page.locator('#page-title').textContent(), '白银')
     assert.equal(await page.getByRole('button', { name: '白银' }).getAttribute('aria-current'), 'page')
     await assertBottomNavigation(page)
@@ -178,6 +180,7 @@ try {
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await page.getByRole('button', { name: '油价' }).click()
+    assert.equal(await page.locator('#collection-status').isHidden(), true, '油价页不应显示今日采集状态')
     assert.equal(await page.getByRole('button', { name: '油价' }).getAttribute('aria-current'), 'page')
     assert.equal(await page.locator('#page-kicker').isHidden(), true)
     await assertBottomNavigation(page)
