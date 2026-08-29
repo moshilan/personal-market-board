@@ -174,3 +174,9 @@
 - 复核Actions运行`33270640984`：ExchangeRate.fun即使带`symbols`仍返回HTTP 403，线上`api/home.json`汇率对象为不可用且无rates；确认根因在Actions出口访问源失败，不是浏览器直连、CORS或静态路径问题。
 - 保留ExchangeRate.fun为首选主源，新增仅由Actions后台使用的Currency Exchange Tool七个单币对备用采集；要求八币种完整、源时间同批且北京时间当日不超过2小时，浏览器继续只读本站静态数据。
 - 常用汇率改为仅展示USD、HKD、JPY、EUR、GBP、KRW、SGD七项兑人民币；汇率异常整页只保留一次`汇率数据暂不可用，请稍后查看`，换算器禁用且不重复显示残缺数据。
+
+## 2026-08-30 06:00
+
+- 将Currency Exchange Tool调整为汇率采集主链路，ExchangeRate.fun仅保留解析支持，不再让已知403的主源阻塞每次Actions采集。
+- 备用源七个单币对分别校验当天和2小时新鲜度；取消跨币对`updatedAt`完全一致及10秒差异限制，保留`sourceObservedAtByCurrency`与统一批次`collectedAt`；任一币对缺失、失败或过期仍整批不可用。
+- 本地真实采集七个币对全部通过：最早`2026-08-29T19:53:22.228Z`，最晚`2026-08-29T19:53:23.823Z`，相差约1.595秒，最终批次可用且八币种齐全。

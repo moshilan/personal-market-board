@@ -165,17 +165,11 @@ async function collectUsdCny(collectedAt) {
 
 async function collectExchangeRates(collectedAt) {
   try {
-    const primary = parseExchangeRateFun(await getJson(SOURCES.exchangeRates), collectedAt.toISOString(), collectedAt)
-    if (primary.available) return primary
-    throw new Error(primary.reason)
+    const records = await Promise.all(['CNY', 'HKD', 'JPY', 'EUR', 'GBP', 'KRW', 'SGD'].map(async (to) => getJson(`${SOURCES.exchangeRatesBackup}?amount=1&from=USD&to=${to}`)))
+    const primary = parseCurrencyExchangeToolBatch(records, collectedAt.toISOString(), collectedAt)
+    return primary.available ? primary : unavailableExchangeRates(collectedAt.toISOString(), primary.reason, CURRENCY_EXCHANGE_TOOL_URL, 'Currency Exchange Tool')
   } catch (error) {
-    try {
-      const records = await Promise.all(['CNY', 'HKD', 'JPY', 'EUR', 'GBP', 'KRW', 'SGD'].map(async (to) => getJson(`${SOURCES.exchangeRatesBackup}?amount=1&from=USD&to=${to}`)))
-      const backup = parseCurrencyExchangeToolBatch(records, collectedAt.toISOString(), collectedAt)
-      return backup.available ? backup : unavailableExchangeRates(collectedAt.toISOString(), `ExchangeRate.fun与备用汇率源均不可用：${backup.reason}`)
-    } catch (backupError) {
-      return unavailableExchangeRates(collectedAt.toISOString(), `ExchangeRate.fun与备用汇率源均不可用：${backupError.message}`)
-    }
+    return unavailableExchangeRates(collectedAt.toISOString(), `Currency Exchange Tool请求失败：${error.message}`, CURRENCY_EXCHANGE_TOOL_URL, 'Currency Exchange Tool')
   }
 }
 

@@ -34,16 +34,20 @@ test('缺少任一支持币种时整批不可用，不用残缺数据换算', ()
   assert.equal(parseExchangeRateFun(incomplete, collectedAt, collectedAt).available, false)
 })
 
-test('备用源批量结果覆盖全部支持币种并保持同一时间点', () => {
+test('备用源批量结果允许币对时间略有差异并保留各自源时间', () => {
   const updatedAt = '2026-08-29T17:00:11.000Z'
   const records = [
     ['CNY', 6.728], ['HKD', 7.84095], ['JPY', 160.085], ['EUR', 0.863222],
     ['GBP', 0.738825], ['KRW', 1377.57], ['SGD', 1.2743],
   ].map(([to, rate]) => ({ from: 'USD', to, rate, updatedAt }))
-  const fallback = parseCurrencyExchangeToolBatch(records, collectedAt, collectedAt)
+  const variedRecords = records.map((record, index) => ({ ...record, updatedAt: new Date(Date.parse(updatedAt) + index * 2_000).toISOString() }))
+  const fallback = parseCurrencyExchangeToolBatch(variedRecords, collectedAt, collectedAt)
   assert.equal(fallback.available, true)
   assert.deepEqual(Object.keys(fallback.rates).sort(), SUPPORTED_CURRENCIES.map(({ code }) => code).sort())
   assert.equal(fallback.sourceName, 'Currency Exchange Tool')
-  assert.equal(fallback.sourceObservedAt, updatedAt)
-  assert.equal(parseCurrencyExchangeToolBatch(records.slice(0, -1), collectedAt, collectedAt).available, false)
+  assert.equal(fallback.sourceObservedAt, variedRecords.at(-1).updatedAt)
+  assert.equal(Object.keys(fallback.sourceObservedAtByCurrency).length, 7)
+  assert.equal(parseCurrencyExchangeToolBatch(variedRecords.slice(0, -1), collectedAt, collectedAt).available, false)
+  assert.equal(parseCurrencyExchangeToolBatch(variedRecords.map((record, index) => index === 0 ? { ...record, updatedAt: '2026-08-29T14:00:00.000Z' } : record), collectedAt, collectedAt).available, false)
+  assert.equal(parseCurrencyExchangeToolBatch(variedRecords.map((record, index) => index === 0 ? { ...record, rate: 0 } : record), collectedAt, collectedAt).available, false)
 })
