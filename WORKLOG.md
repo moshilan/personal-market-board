@@ -168,3 +168,9 @@
 - 定位线上汇率页“HTTP请求失败”根因：前端仅读取本站`api/home.json`，GitHub Actions访问ExchangeRate.fun原始批量路径返回HTTP 403，导致线上汇率对象不可用；手机端未直连第三方。
 - 主源仍为ExchangeRate.fun，仅将批量URL补充目标币种参数以兼容Actions出口；本地采集验证恢复8币种可用。
 - 汇率不可用时改为用户可读状态文案；交换按钮改为`⇄`，换算器调整为两侧等宽、中间固定48px按钮；补充第三方请求为零、按钮和移动端宽度回归断言。
+
+## 2026-08-30 05:00
+
+- 复核Actions运行`33270640984`：ExchangeRate.fun即使带`symbols`仍返回HTTP 403，线上`api/home.json`汇率对象为不可用且无rates；确认根因在Actions出口访问源失败，不是浏览器直连、CORS或静态路径问题。
+- 保留ExchangeRate.fun为首选主源，新增仅由Actions后台使用的Currency Exchange Tool七个单币对备用采集；要求八币种完整、源时间同批且北京时间当日不超过2小时，浏览器继续只读本站静态数据。
+- 常用汇率改为仅展示USD、HKD、JPY、EUR、GBP、KRW、SGD七项兑人民币；汇率异常整页只保留一次`汇率数据暂不可用，请稍后查看`，换算器禁用且不重复显示残缺数据。

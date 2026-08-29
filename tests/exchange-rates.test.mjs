@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { convertExchangeRate, parseExchangeRateFun, SUPPORTED_CURRENCIES } from '../src/exchange-rates.mjs'
+import { convertExchangeRate, parseCurrencyExchangeToolBatch, parseExchangeRateFun, SUPPORTED_CURRENCIES } from '../src/exchange-rates.mjs'
 
 const payload = { base: 'USD', timestamp: 1788022811, rates: { CNY: 6.728, HKD: 7.84095, JPY: 160.085, EUR: 0.863222, GBP: 0.738825, KRW: 1377.57, SGD: 1.2743 } }
 const collectedAt = '2026-08-29T17:30:00.000Z'
@@ -32,4 +32,18 @@ test('过期、非法、空和负数输入不可换算', () => {
 test('缺少任一支持币种时整批不可用，不用残缺数据换算', () => {
   const incomplete = { ...payload, rates: { ...payload.rates, KRW: undefined } }
   assert.equal(parseExchangeRateFun(incomplete, collectedAt, collectedAt).available, false)
+})
+
+test('备用源批量结果覆盖全部支持币种并保持同一时间点', () => {
+  const updatedAt = '2026-08-29T17:00:11.000Z'
+  const records = [
+    ['CNY', 6.728], ['HKD', 7.84095], ['JPY', 160.085], ['EUR', 0.863222],
+    ['GBP', 0.738825], ['KRW', 1377.57], ['SGD', 1.2743],
+  ].map(([to, rate]) => ({ from: 'USD', to, rate, updatedAt }))
+  const fallback = parseCurrencyExchangeToolBatch(records, collectedAt, collectedAt)
+  assert.equal(fallback.available, true)
+  assert.deepEqual(Object.keys(fallback.rates).sort(), SUPPORTED_CURRENCIES.map(({ code }) => code).sort())
+  assert.equal(fallback.sourceName, 'Currency Exchange Tool')
+  assert.equal(fallback.sourceObservedAt, updatedAt)
+  assert.equal(parseCurrencyExchangeToolBatch(records.slice(0, -1), collectedAt, collectedAt).available, false)
 })

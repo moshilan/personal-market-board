@@ -478,7 +478,7 @@ function renderExchange(view) {
   const rates = view.exchangeRates
   const fragment = document.createDocumentFragment()
   const converterSection = element('section', 'exchange-section')
-  converterSection.append(sectionHeading('货币换算器', rates?.available ? `数据时间：${dateTime(rates.sourceObservedAt)}` : '当前汇率不可用'))
+  converterSection.append(sectionHeading('货币换算器', rates?.available ? `数据时间：${dateTime(rates.sourceObservedAt)}` : ''))
   const form = element('div', 'exchange-converter')
   const amount = element('input', 'exchange-amount'); amount.type = 'number'; amount.inputMode = 'decimal'; amount.min = '0'; amount.step = 'any'; amount.placeholder = '输入金额'; amount.value = '1'; amount.setAttribute('aria-label', '金额')
   const from = element('select', 'exchange-select'); from.setAttribute('aria-label', '起始币种')
@@ -487,18 +487,21 @@ function renderExchange(view) {
   from.value = 'CNY'; to.value = 'USD'
   const swap = element('button', 'exchange-swap', '⇄'); swap.type = 'button'; swap.setAttribute('aria-label', '交换币种')
   const result = element('output', 'exchange-result'); result.setAttribute('aria-live', 'polite')
-  const update = () => { const converted = convertExchangeRate(amount.value, from.value, to.value, rates); result.textContent = converted === null ? '暂无可靠汇率' : `${converted.toLocaleString('zh-CN', { maximumFractionDigits: 6 })} ${to.value}` }
+  const update = () => { const converted = convertExchangeRate(amount.value, from.value, to.value, rates); result.textContent = rates?.available && converted !== null ? `${converted.toLocaleString('zh-CN', { maximumFractionDigits: 6 })} ${to.value}` : '' }
   amount.addEventListener('input', update); from.addEventListener('change', update); to.addEventListener('change', update)
   swap.addEventListener('click', () => { const current = from.value; from.value = to.value; to.value = current; update(); from.focus() })
+  const isUnavailable = !rates?.available
+  ;[amount, from, swap, to].forEach((control) => { control.disabled = isUnavailable })
   form.append(amount, from, swap, to, result); converterSection.append(form)
+  if (isUnavailable) converterSection.append(element('p', 'exchange-unavailable', '汇率数据暂不可用，请稍后查看'))
   const listSection = element('section', 'exchange-section'); listSection.append(sectionHeading('常用汇率', '以人民币为参照'))
   const list = element('div', 'exchange-list')
-  SUPPORTED_CURRENCIES.forEach(({ code, name, displayUnit }) => {
+  if (rates?.available) SUPPORTED_CURRENCIES.filter(({ code }) => code !== 'CNY').forEach(({ code, name, displayUnit }) => {
     const row = element('article', 'exchange-row'); const unit = displayUnit
-    const value = rates?.available && rates.rates?.[code] ? (code === 'CNY' ? unit : rates.rates.CNY / rates.rates[code] * unit) : null
+    const value = rates.rates?.[code] ? rates.rates.CNY / rates.rates[code] * unit : null
     row.append(element('div', 'exchange-currency', `${code} ${name}`), element('strong', value === null ? 'unavailable-value' : '', value === null ? '暂无' : `${unit} ${code} = ${value.toLocaleString('zh-CN', { maximumFractionDigits: 6 })} 元`)); list.append(row)
   })
-  listSection.append(list, element('p', 'exchange-source', rates?.available ? `来源：${rates.sourceName} · 更新时间：${dateTime(rates.sourceObservedAt)}` : '汇率数据暂不可用，请稍后查看'))
+  if (rates?.available) listSection.append(list, element('p', 'exchange-source', `来源：${rates.sourceName} · 更新时间：${dateTime(rates.sourceObservedAt)}`))
   fragment.append(converterSection, listSection); update(); return fragment
 }
 

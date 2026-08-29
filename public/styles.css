@@ -154,5 +154,6 @@ section { margin-top: 31px; }
 .exchange-currency { color: #53645e; font-size: 14px; font-weight: 700; }
 .exchange-row strong { font-size: 15px; text-align: right; }
 .exchange-source { margin: 9px 2px 0; color: #61736d; font-size: 11px; }
+.exchange-unavailable { margin-top: 12px; color: #9d4a3f; font-size: 12px; font-weight: 700; }
 @media (max-width: 390px) { .exchange-result { font-size: 21px; } .bottom-nav { padding-left: 4px; padding-right: 4px; } .bottom-nav button { font-size: 11px; } }
 @media (min-width: 540px) { .page-shell { padding-left: 24px; padding-right: 24px; } .gold-grid { gap: 14px; } }
