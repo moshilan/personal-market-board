@@ -462,6 +462,7 @@ function renderGold(view) {
   if (referenceCacheNote) marketSection.append(referenceCacheNote)
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('黄金趋势', '仅展示本地真实记录'))
+  historySection.append(element('p', 'trend-global-note', '趋势按完整交易数据于次日更新，数据不完整的日期将跳过'))
   const goldSeries = trendPoints(latestData, ['international-gold-cny-gram', 'au9999'])
   goldSeries[0].label = '国际黄金折算'
   goldSeries[1].label = '国内黄金'
@@ -517,6 +518,7 @@ function renderSilver(view) {
   if (referenceCacheNote) marketSection.append(referenceCacheNote)
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('白银趋势', '仅展示本地真实记录'))
+  historySection.append(element('p', 'trend-global-note', '趋势按完整交易数据于次日更新，数据不完整的日期将跳过'))
   const silverSeries = trendPoints(latestData, ['international-silver-cny-gram', 'domestic-silver-cny-gram'])
   silverSeries[0].label = '国际白银折算'
   silverSeries[1].label = '国内白银'

@@ -139,3 +139,14 @@ test('休市日价差优先展示最近完整同日历史记录', () => {
   assert.equal(displayed.observedAt, '2026-08-28')
   assert.equal(displayed.value, 1.2)
 })
+
+test('T+1趋势判定会持久化完整与跳过日期', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
+  const storePath = join(directory, 'market-data.json')
+  const first = snapshot('2026-08-28T08:00:00.000Z')
+  await persistSnapshot(first, storePath)
+  const next = await persistSnapshot(snapshot('2026-08-29T08:00:00.000Z'), storePath)
+  assert.equal(next.store.trendDecisions.gold['2026-08-28'], 'complete')
+  assert.equal(next.store.trendDecisions.brands['2026-08-28'], 'skipped')
+  assert.equal(next.store.trendDecisions.gold['2026-08-29'], undefined)
+})

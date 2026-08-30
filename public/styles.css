@@ -83,6 +83,7 @@ section { margin-top: 31px; }
 .product-line, .source-line { margin-top: 4px; color: #61736d; font-size: 11px; }
 .market-closed-note { margin-top: 7px; color: #8a7650; }
 .market-closed-page-note { margin: 8px 0 0; color: #8a7650; font-size: 11px; }
+.trend-global-note { margin: 8px 0 0; color: #61736d; font-size: 11px; }
 .cache-note { margin: 8px 2px 0; color: #71807a; font-size: 11px; }
 .reference-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-top: 10px; padding: 14px 15px; border: 1px solid #d9d8cb; border-radius: 15px; background: #f1f2ea; font-size: 13px; }
 .reference-row strong { font-size: 17px; letter-spacing: -.04em; }

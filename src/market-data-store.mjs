@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { buildTrendDecisions } from './trend-decisions.mjs'
 
 export const STORE_VERSION = 1
 export const HISTORY_INTERVAL_MS = 30 * 60 * 1_000
@@ -149,6 +150,7 @@ export function createEmptyStore() {
     latestSuccessfulByAsset: {},
     history: [],
     latestExchangeRates: null,
+    trendDecisions: {},
   }
 }
 
@@ -203,6 +205,7 @@ export function buildDisplaySnapshot(liveSnapshot, store) {
       if (historical) return { ...historical, displayStatus: 'market-closed', liveStatus: 'unavailable', liveReason: liveObservation.reason, displayOnly: true, marketStatus: 'closed' }
       return { ...liveObservation, displayStatus: 'unavailable' }
     }
+    store.trendDecisions ??= {}
     const cachedObservation = store.latestSuccessfulByAsset[liveObservation.assetId]
     if (!cachedObservation) return { ...liveObservation, displayStatus: 'unavailable' }
     return {
@@ -227,6 +230,7 @@ export async function persistSnapshot(rawSnapshot, storePath) {
   }
   const retentionStart = Date.parse(liveSnapshot.collectedAt) - HISTORY_RETENTION_MS
   store.history = store.history.filter((observation) => Date.parse(observation.collectedAt) >= retentionStart)
+  store.trendDecisions = buildTrendDecisions(store.history, Date.parse(liveSnapshot.collectedAt), store.trendDecisions)
   await writeStore(storePath, store)
   return { liveSnapshot, displaySnapshot: buildDisplaySnapshot(liveSnapshot, store), store }
 }

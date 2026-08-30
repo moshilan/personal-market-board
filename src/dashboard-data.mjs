@@ -1,5 +1,6 @@
 import { buildDisplaySnapshot } from './market-data-store.mjs'
 import { buildMarketViews } from './home-view-model.mjs'
+import { buildTrendDecisions } from './trend-decisions.mjs'
 
 const DAILY_TREND_ASSETS = new Set([
   'international-gold-cny-gram',
@@ -34,7 +35,7 @@ function chinaDate(timestamp) {
   return `${parts.year}-${parts.month}-${parts.day}`
 }
 
-function buildDailyTrendHistory(history, assetIds, now, { excludeToday = false, windowMs = YEAR_DAYS_MS } = {}) {
+function buildDailyTrendHistory(history, assetIds, now, { excludeToday = false, windowMs = YEAR_DAYS_MS, allowedDates = null } = {}) {
   const from = now - windowMs
   const today = chinaDate(now)
   const latestByAssetDay = new Map()
@@ -43,6 +44,7 @@ function buildDailyTrendHistory(history, assetIds, now, { excludeToday = false, 
     .filter((item) => Date.parse(trendTime(item)) >= from)) {
     const date = chinaDate(trendTime(observation))
     if (excludeToday && date === today) continue
+    if (allowedDates && !allowedDates.has(date)) continue
     const key = `${observation.assetId}:${date}`
     const existing = latestByAssetDay.get(key)
     if (!existing || Date.parse(observation.collectedAt) > Date.parse(existing.collectedAt)) latestByAssetDay.set(key, observation)
@@ -60,15 +62,21 @@ function buildDailyTrendHistory(history, assetIds, now, { excludeToday = false, 
     .sort((left, right) => left.date.localeCompare(right.date) || left.assetId.localeCompare(right.assetId))
 }
 
-export function buildTrendHistory(history, now = Date.now()) {
+export function buildTrendHistory(history, now = Date.now(), decisions = null) {
+  const finalized = decisions ?? buildTrendDecisions(history, now)
+  const allowed = (group) => new Set(Object.entries(finalized[group] ?? {}).filter(([, status]) => status === 'complete').map(([date]) => date))
   return [
-    ...buildDailyTrendHistory(history, DAILY_TREND_ASSETS, now, { excludeToday: true }),
+    ...buildDailyTrendHistory(history, new Set(['international-gold-cny-gram', 'au9999']), now, { excludeToday: true, allowedDates: allowed('gold') }),
+    ...buildDailyTrendHistory(history, new Set(['international-silver-cny-gram', 'domestic-silver-cny-gram']), now, { excludeToday: true, allowedDates: allowed('silver') }),
+    ...buildDailyTrendHistory(history, new Set(['domestic-international-gold-spread']), now, { excludeToday: true, allowedDates: allowed('goldSpread') }),
+    ...buildDailyTrendHistory(history, new Set(['domestic-international-silver-spread']), now, { excludeToday: true, allowedDates: allowed('silverSpread') }),
     ...buildDailyTrendHistory(history, FUEL_TREND_ASSETS, now, { windowMs: THIRTY_DAYS_MS }),
   ].sort((left, right) => left.date.localeCompare(right.date) || left.assetId.localeCompare(right.assetId))
 }
 
-export function buildBrandTrendHistory(history, now = Date.now()) {
-  return buildDailyTrendHistory(history, BRAND_TREND_ASSETS, now, { excludeToday: true })
+export function buildBrandTrendHistory(history, now = Date.now(), decisions = null) {
+  const finalized = decisions ?? buildTrendDecisions(history, now)
+  return buildDailyTrendHistory(history, BRAND_TREND_ASSETS, now, { excludeToday: true, allowedDates: new Set(Object.entries(finalized.brands ?? {}).filter(([, status]) => status === 'complete').map(([date]) => date)) })
 }
 
 export function buildDashboardResponse(store, now = Date.now()) {
@@ -87,7 +95,7 @@ export function buildDashboardResponse(store, now = Date.now()) {
     },
     views: buildMarketViews(displaySnapshot),
     exchangeRates: displaySnapshot.exchangeRates,
-    history: buildTrendHistory(store.history, now),
-    brandHistory: buildBrandTrendHistory(store.history, now),
+    history: buildTrendHistory(store.history, now, store.trendDecisions),
+    brandHistory: buildBrandTrendHistory(store.history, now, store.trendDecisions),
   }
 }
