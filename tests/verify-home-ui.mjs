@@ -56,9 +56,9 @@ try {
         && Math.abs((rectangle.top + rectangle.height / 2) - (refresh.top + refresh.height / 2)) < 1
     }), true, '首页采集状态应在刷新显示按钮左侧且同一行')
     await assertBottomNavigation(page)
-    assert.equal(await page.getByRole('heading', { name: '国际金价', exact: true }).count(), 1)
+    assert.equal(await page.getByRole('heading', { name: '国际金价折算', exact: true }).count(), 1)
     assert.equal(await page.getByRole('heading', { name: '国内金价', exact: true }).count(), 1)
-    assert.equal(await page.getByText('XAU/USD', { exact: true }).count(), 1)
+    assert.equal(await page.getByText('折算人民币/克', { exact: true }).count(), 2)
     assert.equal(await page.getByText('上金所 Au99.99', { exact: true }).count(), 1)
     assert.equal(await page.getByText('国际黄金人民币折算', { exact: true }).count(), 0)
     assert.equal(await page.getByText('国内外价差', { exact: true }).count(), 0)

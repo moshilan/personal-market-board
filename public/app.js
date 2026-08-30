@@ -347,7 +347,7 @@ function renderHome(view) {
   const goldSection = element('section', 'summary-section')
   goldSection.append(sectionHeading('金价摘要', '国际与国内金价'))
   const goldGrid = element('div', 'gold-grid')
-  const homeGold = [{ ...view.xauUsd, label: '国际金价 XAU/USD' }, view.gold.find((item) => item.assetId === 'au9999')]
+  const homeGold = [view.gold.find((item) => item.assetId === 'international-gold-cny-gram'), view.gold.find((item) => item.assetId === 'au9999')]
   homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item, 'home-quote', { showExceptionalMeta: true })))
   goldSection.append(goldGrid)
   const silverSection = element('section', 'summary-section')
