@@ -87,6 +87,8 @@ section { margin-top: 31px; }
 .reference-row .quote-meta { grid-column: 1 / -1; margin-top: 0; padding-top: 0; }
 .reference-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
 .reference-card.spot-quote { grid-column: 1 / -1; }
+.reference-card.spot-quote > .quote-value,
+.reference-card.spot-quote > .source-line { text-align: center; }
 .reference-card .source-line, .quote-card .source-line { margin-top: 7px; }
 .fuel-section { margin-top: 18px; }
 .fuel-page-heading { margin-bottom: 12px; }
