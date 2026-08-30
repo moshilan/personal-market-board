@@ -262,7 +262,7 @@ const QUOTE_COPY = {
 
 function quoteCopy(item) { return QUOTE_COPY[item.assetId] ?? { title: item.label, subtitle: null } }
 
-function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false, exceptionStatusOnly = false, showExceptionalMeta = false } = {}) {
+function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = false, showSubtitle = true, timeLabel = '行情时间', timeValue = item.observedAt, showCurrentStatus = false, exceptionStatusOnly = false, showExceptionalMeta = false } = {}) {
   const card = element('article', `quote-card ${className}`)
   const copy = quoteCopy(item)
   const isSpread = item.assetId.endsWith('spread')
@@ -286,7 +286,7 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
     card.append(values)
   } else {
     card.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
-    if (!isSpot && copy.subtitle) card.append(element('p', 'quote-subtitle', copy.subtitle))
+    if (showSubtitle && !isSpot && copy.subtitle) card.append(element('p', 'quote-subtitle', copy.subtitle))
   }
   if (exceptionStatusOnly) {
     if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
@@ -362,14 +362,14 @@ function renderHome(view) {
   goldSection.append(sectionHeading('黄金摘要', '国际与国内黄金'))
   const goldGrid = element('div', 'gold-grid')
   const homeGold = view.gold
-  homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item, 'home-quote', { showExceptionalMeta: true })))
+  homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item, 'home-quote', { showSubtitle: false, showExceptionalMeta: true })))
   goldSection.append(goldGrid)
   const goldCacheNote = cacheNote(homeGold)
   if (goldCacheNote) goldSection.append(goldCacheNote)
   const silverSection = element('section', 'summary-section')
   silverSection.append(sectionHeading('白银摘要', '国际与国内白银'))
   const silverGrid = element('div', 'gold-grid')
-  view.silver.forEach((item) => silverGrid.append(quoteCard(item, 'home-quote', { showExceptionalMeta: true })))
+  view.silver.forEach((item) => silverGrid.append(quoteCard(item, 'home-quote', { showSubtitle: false, showExceptionalMeta: true })))
   silverSection.append(silverGrid)
   const silverCacheNote = cacheNote(view.silver)
   if (silverCacheNote) silverSection.append(silverCacheNote)
