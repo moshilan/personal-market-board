@@ -87,16 +87,16 @@ test('历史按30分钟、品牌日期和油价生效时间去重', async () => 
   assert.equal(buildDisplaySnapshot(first.liveSnapshot, second.store).observations[0].displayStatus, 'current')
 })
 
-test('历史只保留最近31天，当前成功缓存不受影响', async () => {
+test('历史保留最近366天，当前成功缓存不受影响', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
   const storePath = join(directory, 'market-data.json')
-  await persistSnapshot(snapshot('2026-07-01T08:00:00.000Z'), storePath)
+  await persistSnapshot(snapshot('2025-07-01T08:00:00.000Z'), storePath)
   const result = await persistSnapshot(snapshot('2026-08-24T08:00:00.000Z'), storePath)
   assert.equal(getHistory(result.store, 'xau-usd').length, 1)
   assert.equal(result.store.latestSuccessfulByAsset['xau-usd'].observedAt, '2026-08-24T08:00:00.000Z')
 })
 
-test('派生记录不会被31天清理逻辑误删', async () => {
+test('派生记录不会被历史清理逻辑误删', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
   const storePath = join(directory, 'market-data.json')
   const result = await persistSnapshot(snapshot('2026-08-24T08:00:00.000Z'), storePath)

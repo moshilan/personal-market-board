@@ -14,7 +14,7 @@ function observation(assetId, value, timestamp, extra = {}) {
   }
 }
 
-test('趋势响应只包含近30天的趋势资产和必要字段', () => {
+test('日级趋势只包含近一年资产、排除北京时间当天且保留必要字段', () => {
   const now = Date.parse('2026-08-24T12:00:00.000Z')
   const history = [
     observation('international-gold-cny-gram', 1001, '2026-08-24T08:00:00.000Z'),
@@ -25,7 +25,7 @@ test('趋势响应只包含近30天的趋势资产和必要字段', () => {
     observation('guangdong-fuel-95', 8.4, '2026-08-14T16:00:00.000Z', { metadata: { effectiveFrom: '2026-08-14T16:00:00.000Z' } }),
   ]
   const trend = buildTrendHistory(history, now)
-  assert.deepEqual(trend.map((item) => item.assetId), ['guangdong-fuel-95', 'au9999', 'international-gold-cny-gram', 'international-silver-cny-gram'])
+  assert.deepEqual(trend.map((item) => item.assetId), ['guangdong-fuel-95', 'au9999'])
   assert.deepEqual(Object.keys(trend[0]).sort(), ['assetId', 'collectedAt', 'date', 'observedAt', 'percentage', 'timestamp', 'value'])
 })
 
@@ -40,6 +40,26 @@ test('同一自然日趋势记录只保留采集时间最晚的一条', () => {
   assert.equal(trend.filter((item) => item.assetId === 'international-gold-cny-gram').length, 1)
   assert.equal(trend.find((item) => item.assetId === 'international-gold-cny-gram').value, 1005)
   assert.deepEqual([...new Set(trend.map((item) => item.date))], ['2026-08-24'])
+})
+
+test('黄金、白银与价差日级趋势统一排除北京时间当天，昨天的缺失国内记录不生成价差', () => {
+  const now = Date.parse('2026-08-30T04:00:00.000Z')
+  const trend = buildTrendHistory([
+    observation('international-gold-cny-gram', 960, '2026-08-29T12:00:00.000Z'),
+    observation('au9999', 990, '2026-08-29T12:00:00.000Z'),
+    observation('domestic-international-gold-spread', 30, '2026-08-29T12:00:00.000Z'),
+    observation('international-silver-cny-gram', 14, '2026-08-29T12:00:00.000Z'),
+    observation('international-gold-cny-gram', 958, '2026-08-29T20:00:00.000Z'),
+    observation('au9999', 992, '2026-08-29T20:00:00.000Z'),
+    observation('domestic-international-gold-spread', 34, '2026-08-29T20:00:00.000Z'),
+    observation('international-silver-cny-gram', 13.8, '2026-08-29T20:00:00.000Z'),
+  ], now)
+  assert.deepEqual(trend.map((item) => [item.assetId, item.date, item.value]), [
+    ['au9999', '2026-08-29', 990],
+    ['domestic-international-gold-spread', '2026-08-29', 30],
+    ['international-gold-cny-gram', '2026-08-29', 960],
+    ['international-silver-cny-gram', '2026-08-29', 14],
+  ])
 })
 
 test('品牌趋势排除中国时区当天、独立取每品牌当日最后记录且不补缺失日期', () => {
@@ -79,8 +99,8 @@ test('白银三项趋势独立按中国自然日取采集时间最晚记录', ()
 test('仪表盘响应保留页面当前数据并附带趋势历史', () => {
   const store = {
     history: [
-      observation('international-gold-cny-gram', 1001, '2026-08-24T08:00:00.000Z'),
-      observation('domestic-international-gold-spread', 2, '2026-08-24T08:00:00.000Z', { percentage: 0.2 }),
+      observation('international-gold-cny-gram', 1001, '2026-08-23T08:00:00.000Z'),
+      observation('domestic-international-gold-spread', 2, '2026-08-23T08:00:00.000Z', { percentage: 0.2 }),
       observation('brand-gold-chow-sang-sang', 1390, '2026-08-23T08:00:00.000Z'),
     ],
     latestAttempt: { collectedAt: '2026-08-24T08:00:00.000Z', observations: [] },

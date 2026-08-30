@@ -3,7 +3,7 @@ import { dirname } from 'node:path'
 
 export const STORE_VERSION = 1
 export const HISTORY_INTERVAL_MS = 30 * 60 * 1_000
-export const HISTORY_RETENTION_MS = 31 * 24 * 60 * 60 * 1_000
+export const HISTORY_RETENTION_MS = 366 * 24 * 60 * 60 * 1_000
 
 const ASSET_IDS = {
   'XAU/USD': 'xau-usd',

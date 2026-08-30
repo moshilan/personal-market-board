@@ -114,11 +114,11 @@ section { margin-top: 31px; }
 .trend-section { margin-top: 28px; }
 .trend-card { margin-top: 12px; padding: 15px; overflow: hidden; border: 1px solid #d9d8cb; border-radius: 17px; background: #fffdf7; box-shadow: 0 2px 7px rgb(26 54 48 / 4%); }
 .trend-card + .trend-card { margin-top: 10px; }
-.trend-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.trend-card-heading { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px 12px; }
 .trend-card-heading h3 { font-size: 16px; }
 .trend-card-heading p { margin-top: 4px; color: #61736d; font-size: 11px; }
-.trend-range { display: flex; flex: none; gap: 3px; padding: 3px; border-radius: 10px; background: #e8ece5; }
-.trend-range button { min-height: 28px; padding: 0 9px; color: #61736d; border: 0; border-radius: 7px; background: transparent; font-size: 11px; font-weight: 700; }
+.trend-range { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); flex: 1 0 100%; gap: 3px; padding: 3px; border-radius: 10px; background: #e8ece5; }
+.trend-range button { min-height: 28px; min-width: 0; padding: 0 3px; color: #61736d; border: 0; border-radius: 7px; background: transparent; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .trend-range button[aria-pressed="true"] { color: #fffdf7; background: #205c50; }
 .trend-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 13px; color: #53645e; font-size: 11px; font-weight: 700; }
 .trend-legend-item { display: inline-flex; align-items: center; gap: 5px; }
@@ -129,6 +129,7 @@ section { margin-top: 31px; }
 .trend-axis-label { fill: #7b8780; font-size: 9px; font-family: ui-rounded, "PingFang SC", "Microsoft YaHei", sans-serif; }
 .trend-line { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; }
 .trend-dot { stroke: #fffdf7; stroke-width: 2; }
+.trend-date-hit { stroke: transparent; stroke-width: 18; }
 .trend-note { margin-top: 3px; color: #61736d; font-size: 11px; }
 .fuel-movements { display: grid; gap: 5px; margin-top: 10px; padding: 12px 13px; border-radius: 13px; background: #edf0ea; color: #53645e; font-size: 11px; }
 .loading-placeholder { display: grid; gap: 10px; }

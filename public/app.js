@@ -15,7 +15,14 @@ let hasRendered = false
 let activeView = 'home'
 let latestData = null
 let readingNoteTimer = null
-let trendRangeDays = 7
+const TREND_RANGES = [
+  { id: 'week', label: '1周', days: 7 },
+  { id: 'month', label: '1月', months: 1 },
+  { id: 'quarter', label: '3月', months: 3 },
+  { id: 'halfYear', label: '6月', months: 6 },
+  { id: 'year', label: '1年', months: 12 },
+]
+let trendRangeId = 'week'
 
 const TREND_COLORS = {
   'international-gold-cny-gram': '#205c50',
@@ -96,12 +103,36 @@ function sectionHeading(title, note) {
   return heading
 }
 
-function trendPoints(data, assetIds, days = trendRangeDays, historyKey = 'history') {
-  const cutoff = Date.now() - days * 24 * 60 * 60 * 1_000
+function chinaDate(value = new Date()) {
+  const fields = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date(value)).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  return `${fields.year}-${fields.month}-${fields.day}`
+}
+
+function rangeStartDate(range, today = chinaDate()) {
+  const [year, month, day] = today.split('-').map(Number)
+  if (range.days) {
+    const date = new Date(Date.UTC(year, month - 1, day - range.days + 1))
+    return date.toISOString().slice(0, 10)
+  }
+  const target = new Date(Date.UTC(year, month - 1 - range.months, 1))
+  const targetYear = target.getUTCFullYear()
+  const targetMonth = target.getUTCMonth() + 1
+  const targetLastDay = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate()
+  return `${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(Math.min(day, targetLastDay)).padStart(2, '0')}`
+}
+
+function activeTrendRange() {
+  return TREND_RANGES.find((range) => range.id === trendRangeId) ?? TREND_RANGES[0]
+}
+
+function trendPoints(data, assetIds, range = activeTrendRange(), historyKey = 'history') {
+  const startDate = rangeStartDate(range)
   return assetIds.map((assetId) => ({
     assetId,
     points: (data[historyKey] ?? [])
-      .filter((item) => item.assetId === assetId && Date.parse(item.date ?? item.timestamp) >= cutoff)
+      .filter((item) => item.assetId === assetId && (item.date ?? chinaDate(item.timestamp)) >= startDate)
       .map((item) => ({ ...item, timestamp: item.date ?? item.timestamp })),
   }))
 }
@@ -171,6 +202,20 @@ function chartSvg(series, { step = false, zeroLine = false } = {}) {
     svg.append(svgNode('path', { d: commands.join(' '), class: 'trend-line', stroke: TREND_COLORS[assetId] }))
     points.forEach((point) => svg.append(svgNode('circle', { cx: x(point), cy: y(point.value), r: 3.5, class: 'trend-dot', fill: TREND_COLORS[assetId] })))
   })
+  const pointsByDate = new Map()
+  series.forEach(({ label, points }) => points.forEach((point) => {
+    const items = pointsByDate.get(point.date) ?? []
+    items.push(`${label}：${formatter.format(point.value)}元/克`)
+    pointsByDate.set(point.date, items)
+  }))
+  pointsByDate.forEach((items, date) => {
+    const point = series.flatMap((item) => item.points).find((item) => item.date === date)
+    const hitArea = svgNode('line', { x1: x(point), x2: x(point), y1: top, y2: top + plotHeight, class: 'trend-date-hit', 'pointer-events': 'stroke' })
+    const title = svgNode('title')
+    title.textContent = `${dateShort(`${date}T00:00:00.000Z`)}\n${items.join('\n')}`
+    hitArea.append(title)
+    svg.append(hitArea)
+  })
   return svg
 }
 
@@ -188,39 +233,39 @@ function trendLegend(items) {
 
 function trendRangeButtons() {
   const controls = element('div', 'trend-range')
-  ;[[7, '7天'], [30, '30天']].forEach(([days, label]) => {
+  TREND_RANGES.forEach(({ id, label }) => {
     const button = element('button', '', label)
     button.type = 'button'
-    button.setAttribute('aria-pressed', String(trendRangeDays === days))
-    button.addEventListener('click', () => { trendRangeDays = days; render(latestData) })
+    button.setAttribute('aria-pressed', String(trendRangeId === id))
+    button.addEventListener('click', () => { trendRangeId = id; render(latestData) })
     controls.append(button)
   })
   return controls
 }
 
-function accumulationNote(series, days) {
+function accumulationNote(series, range = activeTrendRange()) {
   const points = series.flatMap((item) => item.points)
   if (!points.length) return element('p', 'trend-note', '历史数据积累中，尚无真实记录')
   const timestamps = points.map((item) => Date.parse(item.timestamp))
   const coverage = Math.max(...timestamps) - Math.min(...timestamps)
-  if (points.length < 2 || coverage < days * 24 * 60 * 60 * 1_000) return element('p', 'trend-note', `历史数据积累中，目前仅有${points.length}条真实记录`)
-  return element('p', 'trend-note', `近${days}天，共${points.length}条真实记录`)
+  if (points.length < 2) return element('p', 'trend-note', `历史数据积累中，目前仅有${points.length}条真实记录`)
+  return element('p', 'trend-note', `${range.label}范围内，共${points.length}条真实记录`)
 }
 
-function goldTrendNote(series, days) {
+function goldTrendNote(series, range = activeTrendRange()) {
   const counts = series.map((item) => `${item.label}${item.points.length}条`)
-  if (series.every((item) => item.points.length >= 2)) return accumulationNote(series, days)
+  if (series.every((item) => item.points.length >= 2)) return accumulationNote(series, range)
   return element('p', 'trend-note', `历史数据积累中，${counts.join('，')}`)
 }
 
-function spreadTrendNote(series, currentSpread, days) {
+function spreadTrendNote(series, currentSpread, range = activeTrendRange()) {
   const count = series[0].points.length
   if (!count) return element('p', 'trend-note', currentSpread?.available ? '暂无历史记录，等待下一次采集' : '暂无历史记录')
   if (count === 1) return element('p', 'trend-note', '当前仅有1条历史记录，数据积累中')
-  return accumulationNote(series, days)
+  return accumulationNote(series, range)
 }
 
-function trendCard({ title, note, series, step = false, zeroLine = false, showRange = false, rangeDays = trendRangeDays, statusNote }) {
+function trendCard({ title, note, series, step = false, zeroLine = false, showRange = false, statusNote }) {
   const card = element('section', 'trend-card')
   const heading = element('div', 'trend-card-heading')
   const titleNode = element('div')
@@ -230,7 +275,7 @@ function trendCard({ title, note, series, step = false, zeroLine = false, showRa
   card.append(heading, trendLegend(series))
   const svg = chartSvg(series, { step, zeroLine })
   if (svg) card.append(svg)
-  card.append(statusNote ? statusNote() : accumulationNote(series, rangeDays))
+  card.append(statusNote ? statusNote() : accumulationNote(series))
   return card
 }
 
@@ -403,11 +448,11 @@ function renderGold(view) {
   const goldSeries = trendPoints(latestData, ['international-gold-cny-gram', 'au9999'])
   goldSeries[0].label = '国际黄金折算'
   goldSeries[1].label = '国内黄金'
-  historySection.append(trendCard({ title: '国际与国内黄金', note: '元/克，同一坐标便于观察差距', series: goldSeries, showRange: true, statusNote: () => goldTrendNote(goldSeries, trendRangeDays) }))
+  historySection.append(trendCard({ title: '国际与国内黄金', note: '元/克，同一坐标便于观察差距', series: goldSeries, showRange: true, statusNote: () => goldTrendNote(goldSeries) }))
   const spreadSeries = trendPoints(latestData, ['domestic-international-gold-spread'])
   spreadSeries[0].label = '国内外价差'
   const currentSpread = view.gold.find((item) => item.assetId === 'domestic-international-gold-spread')
-  historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true, statusNote: () => spreadTrendNote(spreadSeries, currentSpread, trendRangeDays) }))
+  historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true, showRange: true, statusNote: () => spreadTrendNote(spreadSeries, currentSpread) }))
   const brandSection = element('section', 'brands-section')
   brandSection.append(sectionHeading('品牌黄金', '品类、时间与来源'))
   const brandList = element('div', 'brand-list')
@@ -422,14 +467,14 @@ function renderGold(view) {
     'brand-gold-chow-tai-fook',
     'brand-gold-luk-fook',
     'brand-gold-lao-feng-xiang',
-  ], trendRangeDays, 'brandHistory')
+  ], activeTrendRange(), 'brandHistory')
   brandSeries[0].label = '周生生'
   brandSeries[1].label = '周大福'
   brandSeries[2].label = '六福'
   brandSeries[3].label = '老凤祥'
   brandTrendSection.append(trendCard({
     title: '四品牌黄金', note: '元/克，每品牌每天最多1条真实记录', series: brandSeries, showRange: true,
-    statusNote: () => goldTrendNote(brandSeries, trendRangeDays),
+    statusNote: () => goldTrendNote(brandSeries),
   }))
   fragment.append(marketSection, historySection, brandSection, brandTrendSection)
   return fragment
@@ -456,11 +501,11 @@ function renderSilver(view) {
   const silverSeries = trendPoints(latestData, ['international-silver-cny-gram', 'domestic-silver-cny-gram'])
   silverSeries[0].label = '国际白银折算'
   silverSeries[1].label = '国内白银'
-  historySection.append(trendCard({ title: '国际与国内白银', note: '元/克，同一坐标便于观察差距', series: silverSeries, showRange: true, statusNote: () => goldTrendNote(silverSeries, trendRangeDays) }))
+  historySection.append(trendCard({ title: '国际与国内白银', note: '元/克，同一坐标便于观察差距', series: silverSeries, showRange: true, statusNote: () => goldTrendNote(silverSeries) }))
   const spreadSeries = trendPoints(latestData, ['domestic-international-silver-spread'])
   spreadSeries[0].label = '国内外价差'
   const currentSpread = view.silver.find((item) => item.assetId === 'domestic-international-silver-spread')
-  historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true, statusNote: () => spreadTrendNote(spreadSeries, currentSpread, trendRangeDays) }))
+  historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true, showRange: true, statusNote: () => spreadTrendNote(spreadSeries, currentSpread) }))
   fragment.append(marketSection, historySection)
   return fragment
 }

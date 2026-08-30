@@ -1,13 +1,15 @@
 import { buildDisplaySnapshot } from './market-data-store.mjs'
 import { buildMarketViews } from './home-view-model.mjs'
 
-const TREND_ASSETS = new Set([
+const DAILY_TREND_ASSETS = new Set([
   'international-gold-cny-gram',
   'au9999',
   'domestic-international-gold-spread',
   'international-silver-cny-gram',
   'domestic-silver-cny-gram',
   'domestic-international-silver-spread',
+])
+const FUEL_TREND_ASSETS = new Set([
   'guangdong-fuel-92',
   'guangdong-fuel-95',
   'guangdong-fuel-0-diesel',
@@ -18,6 +20,7 @@ const BRAND_TREND_ASSETS = new Set([
   'brand-gold-luk-fook',
   'brand-gold-lao-feng-xiang',
 ])
+const YEAR_DAYS_MS = 366 * 24 * 60 * 60 * 1_000
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1_000
 
 function trendTime(observation) {
@@ -31,8 +34,8 @@ function chinaDate(timestamp) {
   return `${parts.year}-${parts.month}-${parts.day}`
 }
 
-function buildDailyTrendHistory(history, assetIds, now, { excludeToday = false } = {}) {
-  const from = now - THIRTY_DAYS_MS
+function buildDailyTrendHistory(history, assetIds, now, { excludeToday = false, windowMs = YEAR_DAYS_MS } = {}) {
+  const from = now - windowMs
   const today = chinaDate(now)
   const latestByAssetDay = new Map()
   for (const observation of history
@@ -58,7 +61,10 @@ function buildDailyTrendHistory(history, assetIds, now, { excludeToday = false }
 }
 
 export function buildTrendHistory(history, now = Date.now()) {
-  return buildDailyTrendHistory(history, TREND_ASSETS, now)
+  return [
+    ...buildDailyTrendHistory(history, DAILY_TREND_ASSETS, now, { excludeToday: true }),
+    ...buildDailyTrendHistory(history, FUEL_TREND_ASSETS, now, { windowMs: THIRTY_DAYS_MS }),
+  ].sort((left, right) => left.date.localeCompare(right.date) || left.assetId.localeCompare(right.assetId))
 }
 
 export function buildBrandTrendHistory(history, now = Date.now()) {
