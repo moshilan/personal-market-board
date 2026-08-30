@@ -130,3 +130,12 @@ test('休市日价差preventCache时不回退到旧缓存', () => {
   assert.equal(displayed.displayStatus, 'unavailable')
   assert.equal(displayed.value, null)
 })
+
+test('休市日价差优先展示最近完整同日历史记录', () => {
+  const live = normalizeSnapshot({ ...snapshot('2026-08-29T08:00:00.000Z'), spread: { name: '国内外价差', available: false, sourceUrl: 'derived', collectedAt: '2026-08-29T08:00:00.000Z', reason: '休市日无法取得同一交易日国际黄金折算价', preventCache: true } })
+  const historical = { assetId: 'domestic-international-gold-spread', available: true, value: 1.2, observedAt: '2026-08-28', collectedAt: '2026-08-28T08:00:00.000Z' }
+  const displayed = buildDisplaySnapshot(live, { history: [historical], latestSuccessfulByAsset: {} }).observations.find((item) => item.assetId === 'domestic-international-gold-spread')
+  assert.equal(displayed.displayStatus, 'market-closed')
+  assert.equal(displayed.observedAt, '2026-08-28')
+  assert.equal(displayed.value, 1.2)
+})

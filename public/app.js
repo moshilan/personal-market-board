@@ -71,6 +71,13 @@ function marketClosedNote(item) {
   return element('p', 'quote-meta market-closed-note', `休市 · 最近交易日 ${dateTime(item.observedAt)}`)
 }
 
+function marketClosedPageNote(items) {
+  const closed = items.filter((item) => item?.displayStatus === 'market-closed' && item.observedAt)
+  if (!closed.length) return null
+  const dates = [...new Set(closed.map((item) => dateTime(item.observedAt)))]
+  return element('p', 'market-closed-page-note', `国内市场休市，当前国内行情及相关指标采用最近有效交易日数据（${dates.join('、')}）`)
+}
+
 function quoteValue(item, unitLabel) {
   if (!item.available) return '暂无可靠数据'
   const sign = item.assetId.endsWith('spread') && item.value > 0 ? '+' : ''
@@ -343,7 +350,7 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
     if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
   } else if (showExceptionalMeta) {
     const closedNote = marketClosedNote(item)
-    if (closedNote) card.append(closedNote)
+    if (closedNote && !className.includes('home-quote')) card.append(closedNote)
     else if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   } else if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) {
     card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
@@ -441,6 +448,8 @@ function renderGold(view) {
   const marketQuotes = [...view.gold, ...view.references]
   const marketDate = sharedQuoteDay(marketQuotes)
   marketSection.append(sectionHeading('黄金参考', marketDate ? `数据日期：${marketDate}` : '黄金与价差'))
+  const goldClosedNote = marketClosedPageNote(view.gold)
+  if (goldClosedNote) marketSection.append(goldClosedNote)
   const goldGrid = element('div', 'gold-grid')
   view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(goldGrid)
@@ -494,6 +503,8 @@ function renderSilver(view) {
   const marketQuotes = [...view.silver, ...view.references]
   const marketDate = sharedQuoteDay(marketQuotes)
   marketSection.append(sectionHeading('白银参考', marketDate ? `数据日期：${marketDate}` : '白银与价差'))
+  const silverClosedNote = marketClosedPageNote(view.silver)
+  if (silverClosedNote) marketSection.append(silverClosedNote)
   const silverGrid = element('div', 'gold-grid')
   view.silver.forEach((item) => silverGrid.append(quoteCard(item, item.assetId.endsWith('spread') ? 'gold-spread silver-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(silverGrid)

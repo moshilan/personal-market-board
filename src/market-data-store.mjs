@@ -196,7 +196,13 @@ export function getHistory(store, assetId, { from, to } = {}) {
 export function buildDisplaySnapshot(liveSnapshot, store) {
   const observations = liveSnapshot.observations.map((liveObservation) => {
     if (liveObservation.available) return { ...liveObservation, displayStatus: liveObservation.displayOnly ? 'market-closed' : 'current' }
-    if (liveObservation.preventCache) return { ...liveObservation, displayStatus: 'unavailable' }
+    if (liveObservation.preventCache) {
+      const historical = (store.history ?? [])
+        .filter((item) => item.assetId === liveObservation.assetId && item.available)
+        .sort((left, right) => Date.parse(right.collectedAt) - Date.parse(left.collectedAt))[0]
+      if (historical) return { ...historical, displayStatus: 'market-closed', liveStatus: 'unavailable', liveReason: liveObservation.reason, displayOnly: true, marketStatus: 'closed' }
+      return { ...liveObservation, displayStatus: 'unavailable' }
+    }
     const cachedObservation = store.latestSuccessfulByAsset[liveObservation.assetId]
     if (!cachedObservation) return { ...liveObservation, displayStatus: 'unavailable' }
     return {
