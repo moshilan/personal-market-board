@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path'
 import { persistSnapshot } from '../src/market-data-store.mjs'
 import { CURRENCY_EXCHANGE_TOOL_URL, EXCHANGE_RATES_SOURCE_URL, parseCurrencyExchangeToolBatch, parseExchangeRateFun, unavailableExchangeRates } from '../src/exchange-rates.mjs'
 import { deriveDomesticSilverCny, deriveInternationalSilverCny, deriveSilverSpread } from '../src/silver-calculations.mjs'
+import { findLatestValidSgeDailyQuotation, makeSgeFallbackRecord } from '../src/sge-daily-quotation.mjs'
 
 const OUNCE_TO_GRAM = 31.1034768
 const TIME_ZONE = 'Asia/Shanghai'
@@ -17,6 +18,7 @@ const SOURCES = {
   exchangeRatesBackup: CURRENCY_EXCHANGE_TOOL_URL,
   au9999: 'https://www.sge.com.cn/h5_sjzx/yshq',
   agTd: 'https://www.sge.com.cn/h5_sjzx/yshq',
+  sgeDaily: 'https://www.sge.com.cn/sjzx/quotation_daily_new',
   chowSangSang: 'https://cn.chowsangsang.com/gold-info',
   brands: {
     '周大福': 'https://cngoldprice.com/brand/chow-tai-fook/today-gold-price',
@@ -60,6 +62,13 @@ function parseNumber(value) {
   const number = Number(String(value).replaceAll(',', '').trim())
   if (!Number.isFinite(number) || number <= 0) throw new Error('价格不是正数')
   return number
+}
+
+async function collectSgeDailyFallback(name, contract, unit, collectedAt) {
+  const html = await getText(`${SOURCES.sgeDaily}?start_date=${shanghaiDate(new Date(collectedAt.getTime() - 366 * 24 * 60 * 60 * 1_000))}&end_date=${shanghaiDate(collectedAt)}`)
+  const quote = findLatestValidSgeDailyQuotation(html, contract, { latestDate: shanghaiDate(collectedAt) })
+  if (!quote) throw new Error(`未找到${contract}最近有效交易日收盘价`)
+  return makeSgeFallbackRecord({ name, contract, unit, value: quote.value, tradeDate: quote.tradeDate, collectedAt, sourceUrl: SOURCES.sgeDaily })
 }
 
 async function collectXauUsdFromXaus(collectedAt) {
@@ -195,7 +204,8 @@ async function collectAu9999(collectedAt) {
       sourceName: '上海黄金交易所延时行情',
     }
   } catch (error) {
-    return unavailable('Au99.99', SOURCES.au9999, collectedAt.toISOString(), error.message)
+    try { return await collectSgeDailyFallback('Au99.99', 'Au99.99', 'gram', collectedAt) }
+    catch (fallbackError) { return unavailable('Au99.99', SOURCES.au9999, collectedAt.toISOString(), `${error.message}；最近交易日fallback失败：${fallbackError.message}`) }
   }
 }
 
@@ -213,7 +223,8 @@ async function collectAgTd(collectedAt) {
       collectedAt: collectedAt.toISOString(), sourceUrl: SOURCES.agTd, sourceName: '上海黄金交易所延时行情',
     }
   } catch (error) {
-    return unavailable('Ag(T+D)', SOURCES.agTd, collectedAt.toISOString(), error.message)
+    try { return await collectSgeDailyFallback('Ag(T+D)', 'Ag(T+D)', 'kilogram', collectedAt) }
+    catch (fallbackError) { return unavailable('Ag(T+D)', SOURCES.agTd, collectedAt.toISOString(), `${error.message}；最近交易日fallback失败：${fallbackError.message}`) }
   }
 }
 
@@ -315,6 +326,7 @@ function deriveInternationalGoldCny(xauUsd, usdCny, collectedAt) {
     unit: 'gram',
     sourceUrl: 'derived',
     sourceName: '公式计算',
+    observedAt: xauUsd.observedAt ?? usdCny.observedAt,
     calculatedAt: collectedAt.toISOString(),
     inputs: [
       { name: xauUsd.name, sourceUrl: xauUsd.sourceUrl, observedAt: xauUsd.observedAt },
@@ -327,6 +339,15 @@ function deriveSpread(au9999, internationalGoldCny, collectedAt) {
   if (!au9999.available || !internationalGoldCny.available) {
     return unavailable('国内外价差', 'derived', collectedAt.toISOString(), 'Au99.99或国际黄金人民币折算价不可用')
   }
+  const asChinaDate = (value) => {
+    if (!value) return null
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return value
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? null : shanghaiDate(date)
+  }
+  if (au9999.displayOnly && asChinaDate(au9999.observedAt) !== asChinaDate(internationalGoldCny.observedAt)) {
+    return unavailable('国内外价差', 'derived', collectedAt.toISOString(), '休市日无法取得同一交易日国际黄金折算价', { preventCache: true })
+  }
   const value = au9999.value - internationalGoldCny.value
   return {
     name: '国内外价差',
@@ -337,6 +358,9 @@ function deriveSpread(au9999, internationalGoldCny, collectedAt) {
     unit: 'gram',
     sourceUrl: 'derived',
     sourceName: '公式计算',
+    observedAt: au9999.observedAt,
+    displayOnly: au9999.displayOnly === true,
+    marketStatus: au9999.marketStatus ?? null,
     calculatedAt: collectedAt.toISOString(),
     inputs: [
       { name: au9999.name, sourceUrl: au9999.sourceUrl, observedAt: au9999.observedAt },

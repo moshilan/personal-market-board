@@ -107,3 +107,26 @@ test('派生记录不会被历史清理逻辑误删', async () => {
   assert.equal(internationalGold[0].collectedAt, '2026-08-24T08:00:00.000Z')
   assert.equal(spread[0].collectedAt, '2026-08-24T08:00:00.000Z')
 })
+
+test('休市fallback只用于展示，不写入当天history且不覆盖缓存', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
+  const storePath = join(directory, 'market-data.json')
+  await persistSnapshot(snapshot('2026-08-28T08:00:00.000Z'), storePath)
+  const fallback = snapshot('2026-08-29T08:00:00.000Z')
+  fallback.au9999 = available('Au99.99', 992.29, fallback.collectedAt, {
+    observedAt: '2026-08-28', quoteDate: '2026-08-28', displayOnly: true, marketStatus: 'closed', sourceUrl: 'https://www.sge.com.cn/sjzx/quotation_daily_new', sourceName: '上海黄金交易所每日行情',
+  })
+  const result = await persistSnapshot(fallback, storePath)
+  const displayed = result.displaySnapshot.observations.find((item) => item.assetId === 'au9999')
+  assert.equal(displayed.displayStatus, 'market-closed')
+  assert.equal(displayed.observedAt, '2026-08-28')
+  assert.equal(getHistory(result.store, 'au9999').some((item) => item.collectedAt === fallback.collectedAt), false)
+  assert.equal(result.store.latestSuccessfulByAsset.au9999.observedAt, '2026-08-28T08:00:00.000Z')
+})
+
+test('休市日价差preventCache时不回退到旧缓存', () => {
+  const live = normalizeSnapshot({ ...snapshot('2026-08-29T08:00:00.000Z'), spread: { name: '国内外价差', available: false, sourceUrl: 'derived', collectedAt: '2026-08-29T08:00:00.000Z', reason: '休市日无法取得同一交易日国际黄金折算价', preventCache: true } })
+  const displayed = buildDisplaySnapshot(live, { latestSuccessfulByAsset: { 'domestic-international-gold-spread': { available: true, value: 5 } } }).observations.find((item) => item.assetId === 'domestic-international-gold-spread')
+  assert.equal(displayed.displayStatus, 'unavailable')
+  assert.equal(displayed.value, null)
+})

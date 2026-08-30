@@ -58,11 +58,17 @@ function dateShort(value) {
 }
 
 function statusText(item) {
+  if (item.displayStatus === 'market-closed') return '休市'
   if (item.displayStatus === 'cached') return '缓存'
   const reason = item.reason ?? ''
   if (/过期|非新鲜|新鲜度/.test(reason)) return item.assetId === 'usd-cny' ? '汇率过期' : '数据较旧'
   if (/失败|超时|请求|采集|获取/.test(reason)) return '获取失败'
   return '不可用'
+}
+
+function marketClosedNote(item) {
+  if (item.displayStatus !== 'market-closed' || !item.observedAt) return null
+  return element('p', 'quote-meta market-closed-note', `休市 · 最近交易日 ${dateTime(item.observedAt)}`)
 }
 
 function quoteValue(item, unitLabel) {
@@ -336,7 +342,9 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
   if (exceptionStatusOnly) {
     if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
   } else if (showExceptionalMeta) {
-    if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
+    const closedNote = marketClosedNote(item)
+    if (closedNote) card.append(closedNote)
+    else if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   } else if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) {
     card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   }
@@ -345,7 +353,7 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
     spotSource.append(element('span', '', copy.subtitle), element('span', '', displaySourceLabel(item)))
     card.append(spotSource)
   }
-  else if (source && !isSpot && !['international-gold-cny-gram', 'au9999', 'international-silver-cny-gram', 'domestic-silver-cny-gram', 'ag-td'].includes(item.assetId) && item.sourceLabel !== '公式计算') card.append(sourceLine(item))
+  else if (source && !isSpot && (!['international-gold-cny-gram', 'au9999', 'international-silver-cny-gram', 'domestic-silver-cny-gram', 'ag-td'].includes(item.assetId) || item.displayStatus === 'market-closed') && item.sourceLabel !== '公式计算') card.append(sourceLine(item))
   return card
 }
 

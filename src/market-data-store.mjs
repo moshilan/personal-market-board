@@ -73,6 +73,8 @@ function unavailableObservation(record) {
     valueType: record.sourceUrl === 'derived' ? 'derived' : 'observed',
     derivedFromIds: [],
     reason: record.reason,
+    preventCache: record.preventCache === true,
+    marketStatus: record.marketStatus ?? null,
     metadata: metadata(record),
   }
 }
@@ -98,6 +100,8 @@ function availableObservation(record, derivedFromIds) {
     },
     valueType: record.sourceUrl === 'derived' ? 'derived' : 'observed',
     derivedFromIds,
+    displayOnly: record.displayOnly === true,
+    marketStatus: record.marketStatus ?? null,
     metadata: metadata(record),
   }
 }
@@ -191,7 +195,8 @@ export function getHistory(store, assetId, { from, to } = {}) {
 
 export function buildDisplaySnapshot(liveSnapshot, store) {
   const observations = liveSnapshot.observations.map((liveObservation) => {
-    if (liveObservation.available) return { ...liveObservation, displayStatus: 'current' }
+    if (liveObservation.available) return { ...liveObservation, displayStatus: liveObservation.displayOnly ? 'market-closed' : 'current' }
+    if (liveObservation.preventCache) return { ...liveObservation, displayStatus: 'unavailable' }
     const cachedObservation = store.latestSuccessfulByAsset[liveObservation.assetId]
     if (!cachedObservation) return { ...liveObservation, displayStatus: 'unavailable' }
     return {
@@ -210,7 +215,7 @@ export async function persistSnapshot(rawSnapshot, storePath) {
   store.latestAttempt = liveSnapshot
   store.latestExchangeRates = liveSnapshot.exchangeRates ?? store.latestExchangeRates ?? null
   for (const observation of liveSnapshot.observations) {
-    if (!observation.available) continue
+    if (!observation.available || observation.displayOnly) continue
     store.latestSuccessfulByAsset[observation.assetId] = observation
     if (shouldAppendHistory(store.history, observation)) store.history.push(observation)
   }
