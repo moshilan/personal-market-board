@@ -65,10 +65,18 @@ function parseNumber(value) {
 }
 
 async function collectSgeDailyFallback(name, contract, unit, collectedAt) {
-  const html = await getText(`${SOURCES.sgeDaily}?start_date=${shanghaiDate(new Date(collectedAt.getTime() - 366 * 24 * 60 * 60 * 1_000))}&end_date=${shanghaiDate(collectedAt)}`)
-  const quote = findLatestValidSgeDailyQuotation(html, contract, { latestDate: shanghaiDate(collectedAt) })
-  if (!quote) throw new Error(`未找到${contract}最近有效交易日收盘价`)
-  return makeSgeFallbackRecord({ name, contract, unit, value: quote.value, tradeDate: quote.tradeDate, collectedAt, sourceUrl: SOURCES.sgeDaily })
+  const end = new Date(`${shanghaiDate(collectedAt)}T00:00:00+08:00`)
+  const earliest = new Date(end.getTime() - 366 * 24 * 60 * 60 * 1_000)
+  let windowEnd = end
+  for (let attempt = 0; attempt < 12 && windowEnd >= earliest; attempt += 1) {
+    const windowStart = new Date(Math.max(earliest.getTime(), windowEnd.getTime() - 30 * 24 * 60 * 60 * 1_000))
+    const query = new URLSearchParams({ start_date: shanghaiDate(windowStart), end_date: shanghaiDate(windowEnd), inst_ids: contract })
+    const html = await getText(`${SOURCES.sgeDaily}?${query}`)
+    const quote = findLatestValidSgeDailyQuotation(html, contract, { latestDate: shanghaiDate(windowEnd) })
+    if (quote) return makeSgeFallbackRecord({ name, contract, unit, value: quote.value, tradeDate: quote.tradeDate, collectedAt, sourceUrl: `${SOURCES.sgeDaily}?${query}` })
+    windowEnd = new Date(windowStart.getTime() - 24 * 60 * 60 * 1_000)
+  }
+  throw new Error(`未找到${contract}最近有效交易日收盘价`)
 }
 
 async function collectXauUsdFromXaus(collectedAt) {
