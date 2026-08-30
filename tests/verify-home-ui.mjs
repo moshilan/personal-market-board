@@ -67,7 +67,7 @@ try {
     assert.equal(await page.getByText('国际白银折算', { exact: true }).count(), 0)
     assert.equal(await page.getByRole('button', { name: '首页' }).getAttribute('aria-current'), 'page')
     assert.equal(await page.getByText('98号汽油').count(), 0)
-    assert.equal(await page.getByText('0号柴油', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('0号柴油', { exact: true }).count(), 1)
     assert.equal(await page.locator('.brand-summary-item').count(), 4)
     assert.equal(await page.locator('.brand-summary-meta').count(), 0)
     assert.equal(await page.locator('.brand-row, .brand-detail-link').count(), 0)
@@ -75,7 +75,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     assert.equal(await page.locator('.fuel-summary').evaluateAll((items) => {
       const rectangles = items.map((item) => item.getBoundingClientRect())
-      return rectangles.length === 2 && rectangles.every((rectangle) => rectangle.top === rectangles[0].top && rectangle.height === rectangles[0].height)
+      return rectangles.length === 3 && rectangles.every((rectangle) => rectangle.top === rectangles[0].top && rectangle.height === rectangles[0].height)
     }), true, '首页油价摘要卡应同一行且等高')
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
@@ -107,7 +107,7 @@ try {
     await assertBottomNavigation(page)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '黄金参考', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际黄金', exact: true }).waitFor())
-    assert.equal(await page.getByRole('heading', { name: '美元兑人民币', exact: true }).count(), 1)
+    assert.equal(await page.getByRole('heading', { name: '美元兑人民币', exact: true }).count(), 0)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际黄金折算', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText(/XAU\/USD ·/).waitFor())
     await assert.doesNotReject(() => page.getByText('USD/CNY', { exact: true }).waitFor())

@@ -6,7 +6,6 @@ const GOLD_ASSETS = [
 
 const REFERENCE_ASSETS = [
   { assetId: 'xau-usd', label: '国际黄金', unitLabel: '美元/盎司' },
-  { assetId: 'usd-cny', label: '美元兑人民币', unitLabel: '元/美元' },
 ]
 
 const SILVER_ASSETS = [
@@ -69,7 +68,7 @@ export function buildMarketViews(displaySnapshot) {
       silver: [silverReferences[0], silver.find((item) => item.assetId === 'domestic-silver-cny-gram')],
       xagUsd: silverReferences[0],
       brands,
-      fuel: fuel.slice(0, 2),
+      fuel,
     },
     gold: { gold, references, brands },
     silver: { silver, references: silverReferences },

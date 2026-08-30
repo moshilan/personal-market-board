@@ -14,7 +14,7 @@ function observation(assetId, value, displayStatus = 'current', extra = {}) {
   }
 }
 
-test('首页模型展示当前有效数据与价差百分比', () => {
+test('首页模型展示当前有效数据与完整油价摘要', () => {
   const home = buildHomeView({ observations: [
     observation('xau-usd', 2400),
     observation('au9999', 1000),
@@ -24,10 +24,10 @@ test('首页模型展示当前有效数据与价差百分比', () => {
   assert.equal(home.gold.find((item) => item.assetId === 'xau-usd').displayStatus, 'current')
   assert.equal(home.gold.find((item) => item.assetId === 'au9999').displayStatus, 'current')
   assert.deepEqual(home.gold.map((item) => item.assetId), ['xau-usd', 'au9999'])
-  assert.equal(home.fuel.length, 2)
+  assert.equal(home.fuel.length, 3)
 })
 
-test('金价与油价视图保留完整内容，首页只保留92与95摘要', () => {
+test('金价与油价视图保留完整内容，首页保留三项油价摘要', () => {
   const views = buildMarketViews({ observations: [
     observation('xau-usd', 2400),
     observation('usd-cny', 7.2),
@@ -35,8 +35,8 @@ test('金价与油价视图保留完整内容，首页只保留92与95摘要', (
     observation('guangdong-fuel-95', 8.5),
     observation('guangdong-fuel-0-diesel', 7.1),
   ] })
-  assert.equal(views.home.fuel.length, 2)
-  assert.equal(views.gold.references.length, 2)
+  assert.equal(views.home.fuel.length, 3)
+  assert.equal(views.gold.references.length, 1)
   assert.equal(views.silver.silver.length, 3)
   assert.equal(views.silver.references.length, 1)
   assert.equal(views.silver.references[0].assetId, 'xag-usd')
