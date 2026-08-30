@@ -268,7 +268,10 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
   const isSpread = item.assetId.endsWith('spread')
   const isSpot = ['xau-usd', 'xag-usd'].includes(item.assetId)
   const heading = element('div', 'quote-heading')
-  heading.append(element('h3', '', copy.title))
+  const displayTitle = isSpot && !className.includes('home-quote')
+    ? (item.assetId === 'xau-usd' ? '国际现货黄金' : '国际现货白银')
+    : copy.title
+  heading.append(element('h3', '', displayTitle))
   if (isSpread) heading.append(element('span', 'spread-heading-note', copy.subtitle))
   else if (isSpot) heading.append(element('span', 'unit', unitLabel === 'USD/盎司' ? '美元/盎司' : unitLabel))
   else if (unitLabel) heading.append(element('span', 'unit', unitLabel))
@@ -292,7 +295,11 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
   } else if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) {
     card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   }
-  if (source && isSpot && item.available) card.append(element('p', 'source-line', `${copy.subtitle} · ${displaySourceLabel(item)}`))
+  if (source && isSpot && item.available) {
+    const spotSource = element('p', 'source-line spot-source-line')
+    spotSource.append(element('span', '', copy.subtitle), element('span', '', displaySourceLabel(item)))
+    card.append(spotSource)
+  }
   else if (source && !isSpot && !['international-gold-cny-gram', 'au9999', 'international-silver-cny-gram', 'domestic-silver-cny-gram', 'ag-td'].includes(item.assetId) && item.sourceLabel !== '公式计算') card.append(sourceLine(item))
   return card
 }
