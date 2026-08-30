@@ -16,12 +16,14 @@ function observation(assetId, value, displayStatus = 'current', extra = {}) {
 
 test('首页模型展示当前有效数据与价差百分比', () => {
   const home = buildHomeView({ observations: [
-    observation('international-gold-cny-gram', 1000),
+    observation('xau-usd', 2400),
+    observation('au9999', 1000),
     observation('domestic-international-gold-spread', 20, 'current', { percentage: 2 }),
     observation('guangdong-fuel-92', 7.8),
   ] })
-  assert.equal(home.gold.find((item) => item.assetId === 'international-gold-cny-gram').displayStatus, 'current')
-  assert.equal(home.gold.find((item) => item.assetId === 'domestic-international-gold-spread').percentage, 2)
+  assert.equal(home.gold.find((item) => item.assetId === 'xau-usd').displayStatus, 'current')
+  assert.equal(home.gold.find((item) => item.assetId === 'au9999').displayStatus, 'current')
+  assert.deepEqual(home.gold.map((item) => item.assetId), ['xau-usd', 'au9999'])
   assert.equal(home.fuel.length, 2)
 })
 
@@ -34,7 +36,7 @@ test('金价与油价视图保留完整内容，首页只保留92与95摘要', (
     observation('guangdong-fuel-0-diesel', 7.1),
   ] })
   assert.equal(views.home.fuel.length, 2)
-  assert.equal(views.gold.references.length, 1)
+  assert.equal(views.gold.references.length, 2)
   assert.equal(views.silver.silver.length, 3)
   assert.equal(views.silver.references.length, 1)
   assert.equal(views.silver.references[0].assetId, 'xag-usd')
@@ -44,11 +46,12 @@ test('金价与油价视图保留完整内容，首页只保留92与95摘要', (
 
 test('首页展示国际、国内白银的紧凑摘要', () => {
   const home = buildHomeView({ observations: [
-    observation('international-silver-cny-gram', 15.96),
+    observation('xag-usd', 68.2),
     observation('domestic-silver-cny-gram', 16.711),
   ] })
-  assert.deepEqual(home.silver.map((item) => item.value), [15.96, 16.711])
-  assert.deepEqual(home.silver.map((item) => item.unitLabel), ['元/克', '元/克'])
+  assert.deepEqual(home.silver.map((item) => item.value), [68.2, 16.711])
+  assert.deepEqual(home.silver.map((item) => item.unitLabel), ['美元/盎司', '元/克'])
+  assert.deepEqual(home.silver.map((item) => item.assetId), ['xag-usd', 'domestic-silver-cny-gram'])
 })
 
 test('首页模型保留缓存状态和原始行情时间', () => {

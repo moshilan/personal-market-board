@@ -44,7 +44,7 @@ section { margin-top: 31px; }
 .unit { color: #61736d; font-size: 11px; white-space: nowrap; }
 .quote-subtitle { margin-top: 4px; color: #61736d; font-size: 11px; line-height: 1.25; }
 .quote-subtitle + .quote-value { margin-top: 15px; }
-.quote-value { display: block; margin-top: 21px; font-size: clamp(25px, 7vw, 35px); letter-spacing: -.07em; line-height: 1; }
+.quote-value { display: block; margin-top: 13px; font-size: clamp(25px, 7vw, 35px); letter-spacing: -.07em; line-height: 1; }
 .unavailable-value { color: #89918b; font-size: 21px; letter-spacing: -.03em; }
 .gold-primary .unavailable-value { color: #d4e6d5; }
 .market-quote, .reference-card { min-height: 0; padding: 13px 15px; }
@@ -56,7 +56,7 @@ section { margin-top: 31px; }
 .spread-percentage { text-align: right; }
 .spread-percent-value { color: #a96f17; }
 .spread-heading-note { min-width: 0; color: #61736d; font-size: 10px; white-space: nowrap; }
-.quote-meta { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-top: auto; padding-top: 12px; color: #61736d; font-size: 11px; }
+.quote-meta { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-top: 9px; padding-top: 0; color: #61736d; font-size: 11px; }
 .quote-meta > span:last-child { min-width: 0; overflow-wrap: anywhere; text-align: right; white-space: normal; }
 .quote-card:not(.gold-primary) .quote-meta, .fuel-card .quote-meta { font-size: 10px; }
 .status { flex: none; padding: 3px 6px; border-radius: 99px; font-size: 10px; font-weight: 700; }
@@ -81,6 +81,7 @@ section { margin-top: 31px; }
 .brand-summary-item strong { display: block; margin-top: 7px; font-size: 18px; letter-spacing: -.05em; white-space: nowrap; }
 .brand-summary-item .unavailable-value { font-size: 13px; white-space: normal; }
 .product-line, .source-line { margin-top: 4px; color: #61736d; font-size: 11px; }
+.cache-note { margin: 8px 2px 0; color: #71807a; font-size: 11px; }
 .reference-row { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; margin-top: 10px; padding: 14px 15px; border: 1px solid #d9d8cb; border-radius: 15px; background: #f1f2ea; font-size: 13px; }
 .reference-row strong { font-size: 17px; letter-spacing: -.04em; }
 .reference-row .quote-meta { grid-column: 1 / -1; margin-top: 0; padding-top: 0; }
@@ -135,11 +136,9 @@ section { margin-top: 31px; }
 .bottom-nav button span { font-size: 17px; line-height: 1; }
 .bottom-nav button[aria-current="page"] { color: #245a4f; border-top-color: #a96f17; }
 .bottom-nav button:focus-visible, .display-refresh:focus-visible, .trend-range button:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
-.spot-quote { grid-column: 1 / -1; min-height: 0; padding: 13px 15px; }
+.spot-quote { min-height: 0; padding: 13px 15px; }
 .spot-code { color: #7b8780; font-size: 11px; font-weight: 700; }
-.spot-quote .quote-value { margin-top: 14px; font-size: clamp(28px, 8vw, 38px); }
-.spot-unit { margin-top: 6px; color: #61736d; font-size: 12px; }
-.spot-quote .unit { display: none; }
+.spot-quote .quote-value { font-size: clamp(28px, 8vw, 38px); }
 .exchange-section { margin-top: 26px; }
 .exchange-converter { display: grid; grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1fr); gap: 9px; align-items: center; padding: 14px; border: 1px solid #d9d8cb; border-radius: 17px; background: #fffdf7; box-shadow: 0 2px 7px rgb(26 54 48 / 4%); }
 .exchange-amount { grid-column: 1 / -1; }
