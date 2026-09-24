@@ -34,19 +34,19 @@
 
 本地开发预览：运行`node scripts/collect-v1-data.mjs`、`node scripts/build-static-site.mjs`、`node scripts/serve-dashboard.mjs`，再访问`http://localhost:8787`。`刷新显示`只重新读取已生成的静态数据，不触发采集。
 
-首页使用底部导航在首页、金价、白银、油价四个视图间切换。金价页提供国际黄金人民币折算价、Au99.99和国内外价差的真实历史趋势；白银页提供国际白银人民币折算、Ag(T+D)换算后的国内白银和国内外白银价差趋势，支持7天、30天范围；油价页按实际调价生效日期展示92号、95号和0号柴油近30天记录。历史不足时明确提示积累中，不补造历史。
+首页使用底部导航在首页、黄金、白银、汇率、油价五个视图间切换。黄金页提供国际黄金人民币折算价、Au99.99和国内外价差的真实历史趋势；白银页提供国际白银人民币折算、Ag(T+D)换算后的国内白银和国内外白银价差趋势。黄金、白银、两类价差和品牌黄金趋势支持1周、1月、3月、6月、1年范围；油价页按实际调价生效日期展示92号、95号和0号柴油近30天记录。历史不足时明确提示积累中，不补造历史。
 
 ## 部署与自动更新
 
 部署目标为GitHub Pages。GitHub Actions在每小时UTC第17分和第47分运行，错开整点与半点高峰，执行测试、真实采集、静态构建和Pages发布。GitHub的定时任务可能因平台负载延后或丢弃，页面始终显示实际采集时间，不将延迟数据标记为实时。[GitHub官方说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
 
-应用代码只在主分支维护，采集状态单独存于`market-data`分支。该分支每次由Actions强制替换为一个仅含`market-data.json`的快照提交，不会让主分支积累自动采集提交。仓储保留最近31天真实历史，满足页面30天趋势窗口；下一次采集先恢复该快照，再按当前缓存与新鲜度规则更新。
+应用代码只在主分支维护，采集状态单独存于`market-data`分支。该分支每次由Actions强制替换为一个仅含`market-data.json`的快照提交，不会让主分支积累自动采集提交。仓储保留最近366天真实历史，支持页面最长1年趋势窗口；下一次采集先恢复该快照，再按当前缓存与新鲜度规则更新。
 
 发布后的固定地址为`https://<GitHub用户名>.github.io/personal-market-board/`。应用的资源、数据请求、PWA清单和Service Worker均使用相对路径，可在这个项目页子路径下工作。
 
 ### GitHub账号侧操作
 
-以下操作需要仓库所有者在GitHub网页完成，本仓库尚未创建远程仓库，也未启用任何远程服务：
+本地已配置远程`origin`为`https://github.com/moshilan/personal-market-board.git`。以下保留初次部署的账号侧操作清单；当前远程权限、Actions和Pages运行状态需在GitHub核验，不能仅凭本地配置认定在线服务正常：
 
 - 新建公开仓库`personal-market-board`，并推送本项目主分支。GitHub Free的Pages仅支持公开仓库
 - 在`Settings → Actions → General`将`Workflow permissions`设为`Read and write permissions`，供工作流更新独立数据分支
@@ -71,7 +71,7 @@ PWA包含manifest、192px与512px PNG图标、Apple触屏图标和最小Service 
 - `scripts/serve-dashboard.mjs`：本地静态站点服务
 - `.github/workflows/refresh-and-deploy.yml`：定时采集、独立数据分支和GitHub Pages发布
 - `docs/`：需求、数据源与设计文档
-- `tests/`：后续测试代码
+- `tests/`：数据模型、采集解析、汇率与页面验证代码
 
 ## 迁移边界
 
