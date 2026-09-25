@@ -318,10 +318,6 @@ try {
     await page.unroute('**/api/home.json')
     const upcomingSnapshot = structuredClone(snapshot)
     const fuelTestTimestamp = new Date().toISOString()
-    upcomingSnapshot.history = [{
-      assetId: 'guangdong-fuel-92', value: 8.63, date: fuelTestTimestamp.slice(0, 10),
-      timestamp: fuelTestTimestamp, observedAt: fuelTestTimestamp, collectedAt: fuelTestTimestamp,
-    }]
     const upcomingFixture = {
       status: 'upcoming',
       effectiveFrom: new Date(Date.now() + 86_400_000).toISOString(),
@@ -370,8 +366,10 @@ try {
     assert.equal(upcomingRows[0].includes('上涨0.07'), true)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价调整记录', exact: true }).waitFor())
-    await assert.doesNotReject(() => page.getByText('当前仅有1次调价记录，历史数据积累中', { exact: true }).waitFor())
-    assert.equal(await page.locator('.trend-section .trend-svg').count(), 0)
+    const fuelTrendCard = page.locator('.trend-card').filter({ has: page.getByRole('heading', { name: '广东油价调价趋势', exact: true }) })
+    const fuelTrendControls = page.locator('.fuel-trend-range')
+    await assert.doesNotReject(() => fuelTrendCard.waitFor())
+    assert.deepEqual(await fuelTrendControls.locator('button').allTextContents(), ['近10次', '半年', '1年'])
     assert.equal(await page.getByText('仅展示可靠行情记录', { exact: true }).count(), 0)
     const fuelAssetIds = ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel']
     const fuelEvents = new Map()
@@ -380,16 +378,34 @@ try {
       event.add(item.assetId)
       fuelEvents.set(item.date, event)
     })
-    const fuelDates = [...fuelEvents].filter(([, assets]) => fuelAssetIds.every((assetId) => assets.has(assetId))).map(([date]) => date).sort().slice(-2)
-    assert.equal(fuelDates.length, 2, '油价图回归需要两次完整的真实调价记录')
+    const completeFuelDates = [...fuelEvents].filter(([, assets]) => fuelAssetIds.every((assetId) => assets.has(assetId))).map(([date]) => date).sort()
+    assert.equal(completeFuelDates.length >= 2, true, '油价趋势回归需要至少两次三种油品日期对齐的真实调价记录')
+    const fuelDates = completeFuelDates.slice(-2)
+    assert.equal(await fuelTrendCard.locator('.trend-dot').count(), Math.min(10, completeFuelDates.length) * 3)
+    const recent10Button = fuelTrendControls.getByRole('button', { name: '近10次', exact: true })
+    const halfYearButton = fuelTrendControls.getByRole('button', { name: '半年', exact: true })
+    const yearButton = fuelTrendControls.getByRole('button', { name: '1年', exact: true })
+    assert.equal(await recent10Button.getAttribute('aria-pressed'), 'true')
+    await halfYearButton.click()
+    assert.equal(await halfYearButton.getAttribute('aria-pressed'), 'true')
+    assert.equal(await recent10Button.getAttribute('aria-pressed'), 'false')
+    assert.equal(await fuelTrendCard.locator('.trend-dot').count() > 0, true)
+    await yearButton.click()
+    assert.equal(await yearButton.getAttribute('aria-pressed'), 'true')
+    assert.equal(await halfYearButton.getAttribute('aria-pressed'), 'false')
+    assert.equal(await fuelTrendCard.locator('.trend-dot').count() > 0, true)
+    await recent10Button.click()
     const fuelTrendSnapshot = structuredClone(snapshot)
     fuelTrendSnapshot.history = snapshot.history.filter((item) => fuelAssetIds.includes(item.assetId) && fuelDates.includes(item.date))
+    assert.equal(fuelTrendSnapshot.history.length, 6, '两次完整油价事件夹具应只含6条记录')
     await page.unroute('**/api/home.json')
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(fuelTrendSnapshot) }))
+    const fuelSnapshotResponse = page.waitForResponse((response) => response.url().includes('/api/home.json'))
     await page.getByRole('button', { name: '刷新显示' }).click()
-    const fuelTrendCard = page.locator('.trend-card').filter({ has: page.getByRole('heading', { name: '广东油价调价趋势', exact: true }) })
+    await fuelSnapshotResponse
+    await page.getByText('已重新读取本地展示数据').waitFor()
     await assert.doesNotReject(() => fuelTrendCard.waitFor())
-    assert.deepEqual(await fuelTrendCard.locator('.trend-range button').allTextContents(), ['近10次', '半年', '1年'])
+    assert.deepEqual(await fuelTrendControls.locator('button').allTextContents(), ['近10次', '半年', '1年'])
     assert.equal(await fuelTrendCard.locator('.trend-dot').count(), 6)
     assert.equal(await fuelTrendCard.locator('.trend-line').evaluateAll((lines) => lines.length === 3 && lines.every((line) => /\bL\b/.test(line.getAttribute('d')) && !/\b[HV]\b/.test(line.getAttribute('d')))), true, '调价记录应由直线段直接连接')
     await page.unroute('**/api/home.json')
