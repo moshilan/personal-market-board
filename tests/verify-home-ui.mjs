@@ -93,16 +93,41 @@ try {
     }
     snapshot.views.gold.exchangeRates = ecbReferenceRates
     snapshot.views.silver.exchangeRates = ecbReferenceRates
+    const setStatus = (items, assetId, displayStatus) => {
+      const item = items.find((candidate) => candidate.assetId === assetId)
+      if (item) item.displayStatus = displayStatus
+    }
+    setStatus(snapshot.views.home.gold, 'xau-usd', 'current')
+    setStatus(snapshot.views.home.gold, 'au9999', 'market-closed')
+    setStatus(snapshot.views.home.silver, 'xag-usd', 'current')
+    setStatus(snapshot.views.home.silver, 'domestic-silver-cny-gram', 'market-closed')
+    snapshot.views.home.brands.forEach((item) => { item.displayStatus = 'current' })
+    snapshot.views.home.fuel.forEach((item) => { item.displayStatus = 'current' })
+    setStatus(snapshot.views.gold.gold, 'international-gold-cny-gram', 'current')
+    setStatus(snapshot.views.gold.gold, 'au9999', 'market-closed')
+    setStatus(snapshot.views.gold.gold, 'domestic-international-gold-spread', 'cached')
+    snapshot.views.gold.references.forEach((item) => { item.displayStatus = 'current' })
+    snapshot.views.gold.brands.forEach((item) => { item.displayStatus = 'current' })
+    setStatus(snapshot.views.silver.silver, 'international-silver-cny-gram', 'current')
+    setStatus(snapshot.views.silver.silver, 'domestic-silver-cny-gram', 'market-closed')
+    setStatus(snapshot.views.silver.silver, 'domestic-international-silver-spread', 'market-closed')
+    snapshot.views.silver.references.forEach((item) => { item.displayStatus = 'current' })
+    snapshot.views.fuel.fuel.forEach((item) => { item.displayStatus = 'current' })
     if (!snapshot.views.home.upcomingFuel) assert.equal(await page.locator('.fuel-upcoming, .fuel-upcoming-summary').count(), 0)
     const anomalousSnapshot = structuredClone(snapshot)
     anomalousSnapshot.views.home.xauUsd.displayStatus = 'cached'
+    anomalousSnapshot.views.home.gold[0].displayStatus = 'cached'
     anomalousSnapshot.views.home.gold[1].available = false
     anomalousSnapshot.views.home.gold[1].displayStatus = 'unavailable'
     anomalousSnapshot.views.home.gold[1].reason = '测试获取失败'
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(anomalousSnapshot) }))
     await page.getByRole('button', { name: '刷新显示' }).click()
     await assert.doesNotReject(() => page.getByText('部分数据来自最近一次有效缓存', { exact: true }).first().waitFor())
-    assert.equal(await page.locator('.quote-card .status-cached, .brand-summary-item .status-cached').count(), 0)
+    assert.equal(await page.locator('.cache-note').count(), 1)
+    assert.equal(await page.locator('.quote-card .status-cached, .brand-summary-item .status-cached, .fuel-card .status-cached').count(), 0)
+    assert.equal(await page.locator('.market-closed-page-note').count(), 1)
+    assert.equal(await page.locator('.quote-card .market-closed-note, .quote-card .status-market-closed').count(), 0)
+    assert.equal(await page.locator('.quote-card, .brand-summary-item, .fuel-card').evaluateAll((cards) => cards.every((card) => !/休市|最近交易日/.test(card.innerText))), true)
     await assert.doesNotReject(() => page.getByText('获取失败', { exact: true }).waitFor())
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.locator('.fuel-section .quote-meta').count(), 0)
@@ -116,6 +141,10 @@ try {
     assert.equal(await page.getByText('国际、国内与品牌黄金', { exact: true }).isVisible(), true)
     await assertBottomNavigation(page)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '黄金参考', exact: true }).waitFor())
+    assert.equal(await page.locator('.market-closed-page-note').count(), 1)
+    assert.equal(await page.locator('.cache-note').count(), 1)
+    assert.equal(await page.locator('.market-closed-note, .status-market-closed').count(), 0)
+    assert.equal(await page.locator('.quote-card').evaluateAll((cards) => cards.every((card) => !/休市|最近交易日/.test(card.innerText))), true)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际黄金折算', exact: true }).waitFor())
     assert.equal(await page.getByRole('heading', { name: '美元兑人民币', exact: true }).count(), 0)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际黄金折算', exact: true }).waitFor())
@@ -198,7 +227,7 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '品牌黄金趋势', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '四品牌黄金', exact: true }).waitFor())
     assert.equal(await page.locator('.brand-trend-section .trend-legend-item').count(), 4)
-    assert.equal(await page.locator('.brand-trend-section .trend-dot').count(), snapshot.brandHistory.length)
+    assert.equal(await page.locator('.brand-trend-section .trend-dot').count(), rangeSnapshot.brandHistory.length)
     assert.equal(await page.locator('.brand-trend-section').evaluate((section) => section.scrollWidth <= section.clientWidth), true, '品牌趋势图不应横向溢出')
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
@@ -215,6 +244,9 @@ try {
     assert.equal(await page.getByRole('button', { name: '白银' }).getAttribute('aria-current'), 'page')
     await assertBottomNavigation(page)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '白银参考', exact: true }).waitFor())
+    assert.equal(await page.locator('.market-closed-page-note').count(), 1)
+    assert.equal(await page.locator('.market-closed-note, .status-market-closed').count(), 0)
+    assert.equal(await page.locator('.quote-card').evaluateAll((cards) => cards.every((card) => !/休市|最近交易日/.test(card.innerText))), true)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际白银折算', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国内白银', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国内外价差', exact: true }).first().waitFor())
@@ -341,6 +373,28 @@ try {
     await assert.doesNotReject(() => page.getByText('当前仅有1次调价记录，历史数据积累中', { exact: true }).waitFor())
     assert.equal(await page.locator('.trend-section .trend-svg').count(), 0)
     assert.equal(await page.getByText('仅展示可靠行情记录', { exact: true }).count(), 0)
+    const fuelAssetIds = ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel']
+    const fuelEvents = new Map()
+    snapshot.history.filter((item) => fuelAssetIds.includes(item.assetId)).forEach((item) => {
+      const event = fuelEvents.get(item.date) ?? new Set()
+      event.add(item.assetId)
+      fuelEvents.set(item.date, event)
+    })
+    const fuelDates = [...fuelEvents].filter(([, assets]) => fuelAssetIds.every((assetId) => assets.has(assetId))).map(([date]) => date).sort().slice(-2)
+    assert.equal(fuelDates.length, 2, '油价图回归需要两次完整的真实调价记录')
+    const fuelTrendSnapshot = structuredClone(snapshot)
+    fuelTrendSnapshot.history = snapshot.history.filter((item) => fuelAssetIds.includes(item.assetId) && fuelDates.includes(item.date))
+    await page.unroute('**/api/home.json')
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(fuelTrendSnapshot) }))
+    await page.getByRole('button', { name: '刷新显示' }).click()
+    const fuelTrendCard = page.locator('.trend-card').filter({ has: page.getByRole('heading', { name: '广东油价调价趋势', exact: true }) })
+    await assert.doesNotReject(() => fuelTrendCard.waitFor())
+    assert.deepEqual(await fuelTrendCard.locator('.trend-range button').allTextContents(), ['近10次', '半年', '1年'])
+    assert.equal(await fuelTrendCard.locator('.trend-dot').count(), 6)
+    assert.equal(await fuelTrendCard.locator('.trend-line').evaluateAll((lines) => lines.length === 3 && lines.every((line) => /\bL\b/.test(line.getAttribute('d')) && !/\b[HV]\b/.test(line.getAttribute('d')))), true, '调价记录应由直线段直接连接')
+    await page.unroute('**/api/home.json')
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(snapshot) }))
+    await page.getByRole('button', { name: '刷新显示' }).click()
     assert.equal(await page.evaluate(() => {
       const scroller = document.querySelector('.page-shell')
       scroller.scrollTop = scroller.scrollHeight

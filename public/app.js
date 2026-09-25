@@ -82,16 +82,11 @@ function exchangeReferenceNote(exchangeRates) {
   return element('p', 'exchange-reference-note', `人民币折算采用 ECB ${Number(match[1])}月${Number(match[2])}日参考汇率，非盘中实时汇率。`)
 }
 
-function marketClosedNote(item) {
-  if (item.displayStatus !== 'market-closed' || !item.observedAt) return null
-  return element('p', 'quote-meta market-closed-note', `休市 · 最近交易日 ${dateTime(item.observedAt)}`)
-}
-
 function marketClosedPageNote(items) {
   const closed = items.filter((item) => item?.displayStatus === 'market-closed' && item.observedAt)
   if (!closed.length) return null
   const dates = [...new Set(closed.map((item) => dateTime(item.observedAt)))]
-  return element('p', 'market-closed-page-note', `国内市场休市，当前国内行情及相关指标采用最近有效交易日数据（${dates.join('、')}）`)
+  return element('p', 'market-closed-page-note', `国内市场休市，国内报价采用最近有效交易日数据（${dates.join('、')}）`)
 }
 
 function quoteValue(item, unitLabel) {
@@ -188,7 +183,7 @@ function scaleDomain(series) {
   return { minValue: minValue - padding, maxValue: maxValue + padding, minTime: Math.min(...times), maxTime: Math.max(...times) }
 }
 
-function chartSvg(series, { step = false, zeroLine = false } = {}) {
+function chartSvg(series, { zeroLine = false } = {}) {
   const domain = scaleDomain(series)
   if (!domain) return null
   const width = 320
@@ -226,7 +221,7 @@ function chartSvg(series, { step = false, zeroLine = false } = {}) {
       const pointX = x(point)
       const pointY = y(point.value)
       if (!index) return `M ${pointX} ${pointY}`
-      return step ? `H ${pointX} V ${pointY}` : `L ${pointX} ${pointY}`
+      return `L ${pointX} ${pointY}`
     })
     svg.append(svgNode('path', { d: commands.join(' '), class: 'trend-line', stroke: TREND_COLORS[assetId] }))
     points.forEach((point) => svg.append(svgNode('circle', { cx: x(point), cy: y(point.value), r: 3.5, class: 'trend-dot', fill: TREND_COLORS[assetId] })))
@@ -234,7 +229,8 @@ function chartSvg(series, { step = false, zeroLine = false } = {}) {
   const pointsByDate = new Map()
   series.forEach(({ label, points }) => points.forEach((point) => {
     const items = pointsByDate.get(point.date) ?? []
-    items.push(`${label}：${formatter.format(point.value)}元/克`)
+    const unit = assetId.startsWith('guangdong-fuel-') ? '元/升' : '元/克'
+    items.push(`${label}：${formatter.format(point.value)}${unit}`)
     pointsByDate.set(point.date, items)
   }))
   pointsByDate.forEach((items, date) => {
@@ -306,7 +302,7 @@ function spreadTrendNote(series, currentSpread, range = activeTrendRange()) {
   return accumulationNote(series, range)
 }
 
-function trendCard({ title, note, series, step = false, zeroLine = false, showRange = false, statusNote }) {
+function trendCard({ title, note, series, zeroLine = false, showRange = false, statusNote }) {
   const card = element('section', 'trend-card')
   const heading = element('div', 'trend-card-heading')
   const titleNode = element('div')
@@ -314,7 +310,7 @@ function trendCard({ title, note, series, step = false, zeroLine = false, showRa
   heading.append(titleNode)
   if (showRange) heading.append(trendRangeButtons())
   card.append(heading, trendLegend(series))
-  const svg = chartSvg(series, { step, zeroLine })
+  const svg = chartSvg(series, { zeroLine })
   if (svg) card.append(svg)
   card.append(statusNote ? statusNote() : accumulationNote(series))
   return card
@@ -368,12 +364,10 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
     if (showSubtitle && !isSpot && copy.subtitle) card.append(element('p', 'quote-subtitle', copy.subtitle))
   }
   if (exceptionStatusOnly) {
-    if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
+    if (item.displayStatus !== 'cached' && item.displayStatus !== 'market-closed' && (item.displayStatus !== 'current' || !item.available)) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
   } else if (showExceptionalMeta) {
-    const closedNote = marketClosedNote(item)
-    if (closedNote && !className.includes('home-quote')) card.append(closedNote)
-    else if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
-  } else if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) {
+    if (item.displayStatus !== 'cached' && item.displayStatus !== 'market-closed' && (item.displayStatus !== 'current' || !item.available)) card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
+  } else if (item.displayStatus !== 'cached' && item.displayStatus !== 'market-closed' && (item.displayStatus !== 'current' || !item.available)) {
     card.append(statusLine(item, timeLabel, timeValue, { showCurrentStatus }))
   }
   if (source && isSpot && item.available) {
@@ -395,7 +389,7 @@ function brandRow(item, detailed) {
       element('strong', item.available ? '' : 'unavailable-value', quoteValue(item, '元/克')),
     )
     const meta = element('p', 'brand-meta', item.available ? `${dateTime(item.observedAt)} · ${displaySourceLabel(item)}` : item.reason || '暂未取得可靠数据')
-    if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) meta.append(document.createTextNode(' · '), element('span', `status status-${item.displayStatus}`, statusText(item)))
+    if (item.displayStatus !== 'cached' && item.displayStatus !== 'market-closed' && (item.displayStatus !== 'current' || !item.available)) meta.append(document.createTextNode(' · '), element('span', `status status-${item.displayStatus}`, statusText(item)))
     row.append(main, meta)
     return row
   }
@@ -413,7 +407,7 @@ function fuelCard(item, detailed = false) {
   valueLine.append(element('strong', item.available ? 'quote-value' : 'quote-value unavailable-value', quoteValue(item)))
   if (item.available) valueLine.append(element('span', 'fuel-unit', '元/升'))
   card.append(valueLine)
-  if (item.displayStatus !== 'current' || !item.available) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
+  if (item.displayStatus !== 'cached' && item.displayStatus !== 'market-closed' && (item.displayStatus !== 'current' || !item.available)) card.append(element('p', 'quote-meta quote-exception', statusText(item)))
   return card
 }
 
@@ -452,7 +446,7 @@ function brandSummaryItem(item) {
   const itemNode = element('article', 'brand-summary-item')
   const heading = element('div', 'brand-summary-heading')
   heading.append(element('h3', '', item.label))
-  if (item.displayStatus !== 'cached' && (item.displayStatus !== 'current' || !item.available)) heading.append(element('span', `status status-${item.displayStatus}`, statusText(item)))
+  if (item.displayStatus !== 'cached' && item.displayStatus !== 'market-closed' && (item.displayStatus !== 'current' || !item.available)) heading.append(element('span', `status status-${item.displayStatus}`, statusText(item)))
   itemNode.append(heading, element('strong', item.available ? '' : 'unavailable-value', quoteValue(item, '元/克')))
   return itemNode
 }
@@ -460,11 +454,13 @@ function brandSummaryItem(item) {
 function brandSummary(view) {
   const section = element('section', 'brands-section')
   section.append(sectionHeading('品牌黄金', '足金饰品，元/克'))
+  const closedNote = marketClosedPageNote(view.brands)
+  if (closedNote) section.append(closedNote)
+  const note = cacheNote(view.brands)
+  if (note) section.append(note)
   const summary = element('div', 'brand-summary')
   view.brands.forEach((item) => summary.append(brandSummaryItem(item)))
   section.append(summary)
-  const note = cacheNote(view.brands)
-  if (note) section.append(note)
   return section
 }
 
@@ -472,21 +468,29 @@ function renderHome(view) {
   const fragment = document.createDocumentFragment()
   const goldSection = element('section', 'summary-section')
   goldSection.append(sectionHeading('黄金摘要', '国际与国内黄金'))
+  const goldClosedNote = marketClosedPageNote(view.gold)
+  if (goldClosedNote) goldSection.append(goldClosedNote)
+  const goldCacheNote = cacheNote(view.gold)
+  if (goldCacheNote) goldSection.append(goldCacheNote)
   const goldGrid = element('div', 'gold-grid')
   const homeGold = view.gold
   homeGold.filter(Boolean).forEach((item) => goldGrid.append(quoteCard(item, 'home-quote', { showSubtitle: false, showExceptionalMeta: true })))
   goldSection.append(goldGrid)
-  const goldCacheNote = cacheNote(homeGold)
-  if (goldCacheNote) goldSection.append(goldCacheNote)
   const silverSection = element('section', 'summary-section')
   silverSection.append(sectionHeading('白银摘要', '国际与国内白银'))
+  const silverClosedNote = marketClosedPageNote(view.silver)
+  if (silverClosedNote) silverSection.append(silverClosedNote)
+  const silverCacheNote = cacheNote(view.silver)
+  if (silverCacheNote) silverSection.append(silverCacheNote)
   const silverGrid = element('div', 'gold-grid')
   view.silver.forEach((item) => silverGrid.append(quoteCard(item, 'home-quote', { showSubtitle: false, showExceptionalMeta: true })))
   silverSection.append(silverGrid)
-  const silverCacheNote = cacheNote(view.silver)
-  if (silverCacheNote) silverSection.append(silverCacheNote)
   const fuelSection = element('section', 'fuel-section')
   fuelSection.append(sectionHeading('油价摘要', '广东官方最高零售价'))
+  const fuelClosedNote = marketClosedPageNote(view.fuel)
+  if (fuelClosedNote) fuelSection.append(fuelClosedNote)
+  const fuelCacheNote = cacheNote(view.fuel)
+  if (fuelCacheNote) fuelSection.append(fuelCacheNote)
   const fuelGrid = element('div', 'fuel-grid')
   view.fuel.forEach((item) => fuelGrid.append(fuelCard(item)))
   fuelSection.append(fuelGrid)
@@ -502,20 +506,18 @@ function renderGold(view) {
   const marketQuotes = [...view.gold, ...view.references]
   const marketDate = sharedQuoteDay(marketQuotes)
   marketSection.append(sectionHeading('黄金参考', marketDate ? `数据日期：${marketDate}` : '黄金与价差'))
-  const goldClosedNote = marketClosedPageNote(view.gold)
+  const goldClosedNote = marketClosedPageNote(marketQuotes)
   if (goldClosedNote) marketSection.append(goldClosedNote)
-  const goldGrid = element('div', 'gold-grid')
-  view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
-  marketSection.append(goldGrid)
-  const goldCacheNote = cacheNote(view.gold)
+  const goldCacheNote = cacheNote(marketQuotes)
   if (goldCacheNote) marketSection.append(goldCacheNote)
   const goldExchangeNote = exchangeReferenceNote(view.exchangeRates)
   if (goldExchangeNote) marketSection.append(goldExchangeNote)
+  const goldGrid = element('div', 'gold-grid')
+  view.gold.forEach((item) => goldGrid.append(quoteCard(item, item.assetId === 'domestic-international-gold-spread' ? 'gold-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
+  marketSection.append(goldGrid)
   const references = element('div', 'reference-list')
   view.references.forEach((item) => references.append(quoteCard(item, `reference-card ${['xau-usd', 'xag-usd'].includes(item.assetId) ? 'spot-quote' : ''}`, { source: true, unitLabel: item.unitLabel === 'USD/盎司' ? '美元/盎司' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(references)
-  const referenceCacheNote = cacheNote(view.references)
-  if (referenceCacheNote) marketSection.append(referenceCacheNote)
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('黄金趋势', '仅展示本地真实记录'))
   historySection.append(element('p', 'trend-global-note', '趋势按完整交易数据于次日更新，数据不完整的日期将跳过'))
@@ -529,11 +531,13 @@ function renderGold(view) {
   historySection.append(trendCard({ title: '国内外价差', note: '元/克，横线为0', series: spreadSeries, zeroLine: true, showRange: true, statusNote: () => spreadTrendNote(spreadSeries, currentSpread) }))
   const brandSection = element('section', 'brands-section')
   brandSection.append(sectionHeading('品牌黄金', '品类、时间与来源'))
+  const brandClosedNote = marketClosedPageNote(view.brands)
+  if (brandClosedNote) brandSection.append(brandClosedNote)
+  const brandCacheNote = cacheNote(view.brands)
+  if (brandCacheNote) brandSection.append(brandCacheNote)
   const brandList = element('div', 'brand-list')
   view.brands.forEach((item) => brandList.append(brandRow(item, true)))
   brandSection.append(brandList)
-  const brandCacheNote = cacheNote(view.brands)
-  if (brandCacheNote) brandSection.append(brandCacheNote)
   const brandTrendSection = element('section', 'trend-section brand-trend-section')
   brandTrendSection.append(sectionHeading('品牌黄金趋势', '仅展示已结束自然日'))
   const brandSeries = trendPoints(latestData, [
@@ -560,20 +564,18 @@ function renderSilver(view) {
   const marketQuotes = [...view.silver, ...view.references]
   const marketDate = sharedQuoteDay(marketQuotes)
   marketSection.append(sectionHeading('白银参考', marketDate ? `数据日期：${marketDate}` : '白银与价差'))
-  const silverClosedNote = marketClosedPageNote(view.silver)
+  const silverClosedNote = marketClosedPageNote(marketQuotes)
   if (silverClosedNote) marketSection.append(silverClosedNote)
-  const silverGrid = element('div', 'gold-grid')
-  view.silver.forEach((item) => silverGrid.append(quoteCard(item, item.assetId.endsWith('spread') ? 'gold-spread silver-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
-  marketSection.append(silverGrid)
-  const silverCacheNote = cacheNote(view.silver)
+  const silverCacheNote = cacheNote(marketQuotes)
   if (silverCacheNote) marketSection.append(silverCacheNote)
   const silverExchangeNote = exchangeReferenceNote(view.exchangeRates)
   if (silverExchangeNote) marketSection.append(silverExchangeNote)
+  const silverGrid = element('div', 'gold-grid')
+  view.silver.forEach((item) => silverGrid.append(quoteCard(item, item.assetId.endsWith('spread') ? 'gold-spread silver-spread' : 'market-quote', { source: true, showExceptionalMeta: Boolean(marketDate) })))
+  marketSection.append(silverGrid)
   const references = element('div', 'reference-list')
   view.references.forEach((item) => references.append(quoteCard(item, `reference-card ${['xau-usd', 'xag-usd'].includes(item.assetId) ? 'spot-quote' : ''}`, { source: true, unitLabel: item.unitLabel === 'USD/盎司' ? '美元/盎司' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(references)
-  const referenceCacheNote = cacheNote(view.references)
-  if (referenceCacheNote) marketSection.append(referenceCacheNote)
   const historySection = element('section', 'trend-section')
   historySection.append(sectionHeading('白银趋势', '仅展示本地真实记录'))
   historySection.append(element('p', 'trend-global-note', '趋势按完整交易数据于次日更新，数据不完整的日期将跳过'))
@@ -603,6 +605,10 @@ function renderFuel(view) {
   )
   fuelHeading.append(fuelContext)
   fuelSection.append(fuelHeading)
+  const fuelClosedNote = marketClosedPageNote(view.fuel)
+  if (fuelClosedNote) fuelSection.append(fuelClosedNote)
+  const fuelCacheNote = cacheNote(view.fuel)
+  if (fuelCacheNote) fuelSection.append(fuelCacheNote)
   const fuelGrid = element('div', 'fuel-grid')
   view.fuel.forEach((item) => fuelGrid.append(fuelCard(item, true)))
   fuelSection.append(fuelGrid)
@@ -620,7 +626,7 @@ function renderFuel(view) {
     trendSection.append(element('p', 'trend-note', fuelRecordCount === 1 ? '当前仅有1次调价记录，历史数据积累中' : '历史数据积累中，尚无真实调价记录'))
   } else {
     trendSection.append(trendCard({
-      title: '广东油价调价趋势', note: '元/升，每个点为一次实际调价', series: fuelSeries, step: true,
+      title: '广东油价调价趋势', note: '元/升，每个点为一次实际调价', series: fuelSeries,
       statusNote: () => element('p', 'trend-note', `${fuelRange.label}范围内，共${fuelRecordCount}次实际调价事件`),
     }))
     const movements = element('div', 'fuel-movements')
