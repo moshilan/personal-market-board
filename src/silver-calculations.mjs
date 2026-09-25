@@ -4,12 +4,6 @@ function unavailable(name, collectedAt, reason, extra = {}) {
   return { name, available: false, sourceUrl: 'derived', collectedAt: collectedAt.toISOString(), reason, ...extra }
 }
 
-function chinaDate(value) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value ?? ''))) return value
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
-}
-
 export function deriveInternationalSilverCny(xagUsd, usdCny, collectedAt) {
   if (!xagUsd.available || !usdCny.available) {
     return unavailable('国际白银人民币折算价', collectedAt, 'XAG/USD或USD/CNY不可用')
@@ -17,6 +11,7 @@ export function deriveInternationalSilverCny(xagUsd, usdCny, collectedAt) {
   return {
     name: '国际白银人民币折算价', available: true,
     value: xagUsd.value * usdCny.value / OUNCE_TO_GRAM,
+    observedAt: xagUsd.observedAt ?? usdCny.observedAt,
     currency: 'CNY', unit: 'gram', sourceUrl: 'derived', sourceName: '公式计算',
     calculatedAt: collectedAt.toISOString(),
     inputs: [
@@ -41,11 +36,6 @@ export function deriveDomesticSilverCny(agTd, collectedAt) {
 export function deriveSilverSpread(domesticSilverCny, internationalSilverCny, collectedAt) {
   if (!domesticSilverCny.available || !internationalSilverCny.available) {
     return unavailable('国内外白银价差', collectedAt, '国内白银或国际白银人民币折算价不可用')
-  }
-  const domesticDate = chinaDate(domesticSilverCny.observedAt)
-  const internationalDate = chinaDate(internationalSilverCny.observedAt)
-  if (domesticSilverCny.displayOnly && (!domesticDate || !internationalDate || domesticDate !== internationalDate)) {
-    return unavailable('国内外白银价差', collectedAt, '休市日无法取得同一交易日国际白银折算价', { preventCache: true })
   }
   const value = domesticSilverCny.value - internationalSilverCny.value
   return {

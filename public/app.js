@@ -1,6 +1,7 @@
 import { collectionStatusForChina } from './collection-status.mjs'
 import { SUPPORTED_CURRENCIES, convertExchangeRate } from './exchange-rates.js'
 import { FUEL_TREND_RANGES, fuelTrendPoints } from './fuel-trend.js'
+import { selectTrendDates } from './trend-range.js'
 import { resolveUpcomingFuelView } from './fuel-upcoming.js'
 
 const app = document.querySelector('#app')
@@ -20,7 +21,7 @@ let readingNoteTimer = null
 let upcomingFuelTimer = null
 let fuelTrendRangeId = 'recent10'
 const TREND_RANGES = [
-  { id: 'week', label: '1周', days: 7 },
+  { id: 'week', label: '7个有效日' },
   { id: 'month', label: '1月', months: 1 },
   { id: 'quarter', label: '3月', months: 3 },
   { id: 'halfYear', label: '6月', months: 6 },
@@ -110,7 +111,7 @@ function statusLine(item, timeLabel = '行情时间', timeValue = item.observedA
 }
 
 function displaySourceLabel(item, fallback = '公开报价') {
-  if (['au9999', 'ag-td', 'domestic-silver-cny-gram'].includes(item.assetId)) return '上海黄金交易所'
+  if (['au9999', 'ag-td', 'domestic-silver-cny-gram'].includes(item.assetId)) return item.assetId === 'au9999' ? '上金所 · Au99.99' : '上金所 · Ag(T+D)'
   return item.sourceLabel ?? fallback
 }
 
@@ -152,11 +153,13 @@ function activeTrendRange() {
 }
 
 function trendPoints(data, assetIds, range = activeTrendRange(), historyKey = 'history') {
-  const startDate = rangeStartDate(range)
+  const startDate = range.id === 'week' ? null : rangeStartDate(range)
+  const history = data[historyKey] ?? []
+  const dates = selectTrendDates(history, assetIds, range.id, startDate)
   return assetIds.map((assetId) => ({
     assetId,
-    points: (data[historyKey] ?? [])
-      .filter((item) => item.assetId === assetId && (item.date ?? chinaDate(item.timestamp)) >= startDate)
+    points: history
+      .filter((item) => item.assetId === assetId && dates.has(item.date ?? chinaDate(item.timestamp)))
       .map((item) => ({ ...item, timestamp: item.date ?? item.timestamp })),
   }))
 }
@@ -261,6 +264,7 @@ function trendRangeButtons() {
   TREND_RANGES.forEach(({ id, label }) => {
     const button = element('button', '', label)
     button.type = 'button'
+    if (id === 'week') button.title = '最近7个完整有效趋势日'
     button.setAttribute('aria-pressed', String(trendRangeId === id))
     button.addEventListener('click', () => { trendRangeId = id; render(latestData) })
     controls.append(button)
@@ -325,13 +329,13 @@ function fuelMovement(item) {
 
 const QUOTE_COPY = {
   'xau-usd': { title: '国际黄金', subtitle: 'XAU/USD' },
-  au9999: { title: '国内黄金', subtitle: '上金所 Au99.99' },
+  au9999: { title: '国内黄金', subtitle: '上金所 · Au99.99' },
   'usd-cny': { title: '美元兑人民币', subtitle: 'USD/CNY' },
   'international-gold-cny-gram': { title: '国际黄金折算', subtitle: '折算人民币/克' },
   'domestic-international-gold-spread': { title: '国内外价差', subtitle: '上金所金价 - 国际折算价' },
   'xag-usd': { title: '国际白银', subtitle: 'XAG/USD' },
   'international-silver-cny-gram': { title: '国际白银折算', subtitle: '折算人民币/克' },
-  'domestic-silver-cny-gram': { title: '国内白银', subtitle: '上金所 Ag(T+D)' },
+  'domestic-silver-cny-gram': { title: '国内白银', subtitle: '上金所 · Ag(T+D)' },
   'domestic-international-silver-spread': { title: '国内外价差', subtitle: '国内白银 - 国际折算价' },
 }
 
@@ -375,7 +379,7 @@ function quoteCard(item, className = '', { unitLabel = item.unitLabel, source = 
     spotSource.append(element('span', '', copy.subtitle), element('span', '', displaySourceLabel(item)))
     card.append(spotSource)
   }
-  else if (source && !isSpot && (!['international-gold-cny-gram', 'au9999', 'international-silver-cny-gram', 'domestic-silver-cny-gram', 'ag-td'].includes(item.assetId) || item.displayStatus === 'market-closed') && item.sourceLabel !== '公式计算') card.append(sourceLine(item))
+  else if (source && !isSpot && !['international-gold-cny-gram', 'au9999', 'international-silver-cny-gram', 'domestic-silver-cny-gram', 'ag-td'].includes(item.assetId) && item.sourceLabel !== '公式计算') card.append(sourceLine(item))
   return card
 }
 

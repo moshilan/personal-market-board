@@ -25,6 +25,15 @@ test('黄金、白银人民币折算和白银价差都沿用同一个ECB USD/CNY
   assert.deepEqual(silver.inputs[1], { name: 'USD/CNY', sourceUrl: exchangeRates.sourceUrl, observedAt: exchangeRates.sourceObservedAt })
 })
 
+test('黄金价差使用不同日期的各自最近有效报价，不要求同日', () => {
+  const international = deriveInternationalGoldCny({ name: 'XAU/USD', available: true, value: 3800, observedAt: '2026-09-25T07:00:00.000Z', sourceUrl: 'https://xau.test' }, usdCny, collectedAt)
+  const domestic = { name: 'Au99.99', available: true, value: 820, observedAt: '2026-09-24', displayOnly: true }
+  const spread = deriveGoldSpread(domestic, international, collectedAt)
+  assert.equal(spread.available, true)
+  assert.equal(spread.value, 820 - international.value)
+  assert.equal(spread.displayOnly, true)
+})
+
 test('ECB响应归一出的USD/CNY与换算器中USD→CNY完全一致', () => {
   const csv = 'FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE\nD,CNY,EUR,SP00,A,2026-09-24,7.6302\nD,USD,EUR,SP00,A,2026-09-24,1.1367\nD,HKD,EUR,SP00,A,2026-09-24,8.9148\nD,JPY,EUR,SP00,A,2026-09-24,180.57\nD,GBP,EUR,SP00,A,2026-09-24,0.85986\nD,KRW,EUR,SP00,A,2026-09-24,1555.69\nD,SGD,EUR,SP00,A,2026-09-24,1.4549'
   const rates = parseEcbExchangeRates(csv, collectedAt.toISOString(), collectedAt)

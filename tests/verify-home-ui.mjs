@@ -60,7 +60,8 @@ try {
     assert.equal(await page.getByRole('heading', { name: '国际黄金', exact: true }).count(), 1)
     assert.equal(await page.getByRole('heading', { name: '国内黄金', exact: true }).count(), 1)
     assert.equal(await page.getByText('折算人民币/克', { exact: true }).count(), 0)
-    assert.equal(await page.getByText('上金所 Au99.99', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('上金所 · Au99.99', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('上海黄金交易所', { exact: true }).count(), 0)
     assert.equal(await page.getByText('国际黄金人民币折算', { exact: true }).count(), 0)
     assert.equal(await page.getByText('国内外价差', { exact: true }).count(), 0)
     assert.equal(await page.getByText('USD/CNY', { exact: true }).count(), 0)
@@ -145,6 +146,8 @@ try {
     assert.equal(await page.locator('.cache-note').count(), 1)
     assert.equal(await page.locator('.market-closed-note, .status-market-closed').count(), 0)
     assert.equal(await page.locator('.quote-card').evaluateAll((cards) => cards.every((card) => !/休市|最近交易日/.test(card.innerText))), true)
+    assert.equal(await page.getByText('上金所 · Au99.99', { exact: true }).count(), 1)
+    assert.equal(await page.getByText('上海黄金交易所', { exact: true }).count(), 0)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际黄金折算', exact: true }).waitFor())
     assert.equal(await page.getByRole('heading', { name: '美元兑人民币', exact: true }).count(), 0)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际黄金折算', exact: true }).waitFor())
@@ -167,14 +170,14 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际与国内黄金', exact: true }).waitFor())
     assert.equal(await page.locator('.trend-note').count() > 0, true)
     assert.equal(await page.locator('.trend-card .trend-range').count(), 3)
-    for (const label of ['1周', '1月', '3月', '6月', '1年']) {
+    for (const label of ['7个有效日', '1月', '3月', '6月', '1年']) {
       assert.equal(await page.locator('.trend-card').nth(0).getByRole('button', { name: label, exact: true }).count(), 1)
       assert.equal(await page.locator('.trend-card').nth(1).getByRole('button', { name: label, exact: true }).count(), 1)
       assert.equal(await page.locator('.brand-trend-section').getByRole('button', { name: label, exact: true }).count(), 1)
     }
     const goldTrendRange = page.locator('.trend-card').nth(0).getByRole('button', { name: '1月', exact: true })
     await goldTrendRange.click()
-    assert.equal(await goldTrendRange.getAttribute('aria-pressed'), 'true')
+    await assert.doesNotReject(() => page.locator('.trend-card').nth(0).locator('button[aria-pressed="true"]').filter({ hasText: '1月' }).waitFor())
     const singlePointTrendSnapshot = structuredClone(snapshot)
     const trendTimestamp = snapshot.collectedAt
     const trendDate = trendTimestamp.slice(0, 10)
@@ -207,8 +210,8 @@ try {
     })))
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(rangeSnapshot) }))
     await page.getByRole('button', { name: '刷新显示' }).click()
-    await page.locator('.trend-card').nth(0).getByRole('button', { name: '1周', exact: true }).click()
-    assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-dot').count(), 2)
+    await page.locator('.trend-card').nth(0).getByRole('button', { name: '7个有效日', exact: true }).click()
+    assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-dot').count(), 4)
     await page.locator('.trend-card').nth(0).getByRole('button', { name: '1月', exact: true }).click()
     assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-dot').count(), 4)
     const brandTooltip = await page.locator('.brand-trend-section .trend-svg title').allTextContents()
@@ -249,6 +252,8 @@ try {
     assert.equal(await page.locator('.quote-card').evaluateAll((cards) => cards.every((card) => !/休市|最近交易日/.test(card.innerText))), true)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际白银折算', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国内白银', exact: true }).waitFor())
+    assert.equal(await page.getByText('上金所 · Ag(T+D)', { exact: true }).count(), 1)
+    assert.equal(await page.getByText('上海黄金交易所', { exact: true }).count(), 0)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国内外价差', exact: true }).first().waitFor())
     assert.equal(await page.getByText('人民币折算采用 ECB 9月24日参考汇率，非盘中实时汇率。', { exact: true }).count(), 1)
     assert.equal(await page.locator('.exchange-reference-note').count(), 1, '白银详情页只显示一次汇率说明')
@@ -257,7 +262,7 @@ try {
     await assert.doesNotReject(() => page.getByText('美元/盎司', { exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '白银趋势', exact: true }).waitFor())
     assert.equal(await page.locator('.trend-card .trend-range').count(), 2)
-    for (const label of ['1周', '1月', '3月', '6月', '1年']) {
+    for (const label of ['7个有效日', '1月', '3月', '6月', '1年']) {
       assert.equal(await page.locator('.trend-card').nth(0).getByRole('button', { name: label, exact: true }).count(), 1)
       assert.equal(await page.locator('.trend-card').nth(1).getByRole('button', { name: label, exact: true }).count(), 1)
     }

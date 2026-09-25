@@ -26,3 +26,15 @@ test('白银输入不可用时派生值明确不可用', () => {
   assert.equal(domestic.available, false)
   assert.equal(spread.available, false)
 })
+
+test('白银价差使用不同日期的各自最近有效报价，不要求同日', () => {
+  const currentSilver = { ...xagUsd, observedAt: '2026-09-25T07:00:00.000Z' }
+  const previousDomestic = { ...agTd, observedAt: '2026-09-24', displayOnly: true }
+  const international = deriveInternationalSilverCny(currentSilver, usdCny, collectedAt)
+  const domestic = deriveDomesticSilverCny(previousDomestic, collectedAt)
+  const spread = deriveSilverSpread(domestic, international, collectedAt)
+  assert.equal(international.observedAt, currentSilver.observedAt)
+  assert.equal(spread.available, true)
+  assert.equal(spread.value, domestic.value - international.value)
+  assert.equal(spread.displayOnly, true)
+})
