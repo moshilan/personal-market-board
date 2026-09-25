@@ -239,7 +239,7 @@ function chartSvg(series, { step = false, zeroLine = false } = {}) {
     const point = series.flatMap((item) => item.points).find((item) => item.date === date)
     const hitArea = svgNode('line', { x1: x(point), x2: x(point), y1: top, y2: top + plotHeight, class: 'trend-date-hit', 'pointer-events': 'stroke' })
     const title = svgNode('title')
-    title.textContent = `${dateShort(`${date}T00:00:00.000Z`)}\n${items.join('\n')}`
+    title.textContent = `${dateShort(point.timestamp)}\n${items.join('\n')}`
     hitArea.append(title)
     svg.append(hitArea)
   })

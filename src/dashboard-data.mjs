@@ -22,7 +22,7 @@ const BRAND_TREND_ASSETS = new Set([
   'brand-gold-lao-feng-xiang',
 ])
 const YEAR_DAYS_MS = 366 * 24 * 60 * 60 * 1_000
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1_000
+const FUEL_EVENT_COUNT = 10
 
 function trendTime(observation) {
   return observation.metadata?.effectiveFrom ?? observation.collectedAt ?? observation.observedAt
@@ -70,8 +70,37 @@ export function buildTrendHistory(history, now = Date.now(), decisions = null) {
     ...buildDailyTrendHistory(history, new Set(['international-silver-cny-gram', 'domestic-silver-cny-gram']), now, { excludeToday: true, allowedDates: allowed('silver') }),
     ...buildDailyTrendHistory(history, new Set(['domestic-international-gold-spread']), now, { excludeToday: true, allowedDates: allowed('goldSpread') }),
     ...buildDailyTrendHistory(history, new Set(['domestic-international-silver-spread']), now, { excludeToday: true, allowedDates: allowed('silverSpread') }),
-    ...buildDailyTrendHistory(history, FUEL_TREND_ASSETS, now, { windowMs: THIRTY_DAYS_MS }),
+    ...buildFuelTrendHistory(history, now),
   ].sort((left, right) => left.date.localeCompare(right.date) || left.assetId.localeCompare(right.assetId))
+}
+
+function buildFuelTrendHistory(history, now) {
+  const eventsByDate = new Map()
+  for (const observation of history) {
+    const effectiveFrom = observation.metadata?.effectiveFrom
+    if (!observation.available || !FUEL_TREND_ASSETS.has(observation.assetId) || !effectiveFrom || Date.parse(effectiveFrom) > now) continue
+    const date = chinaDate(effectiveFrom)
+    const event = eventsByDate.get(date) ?? new Map()
+    const existing = event.get(observation.assetId)
+    if (!existing || Date.parse(observation.collectedAt) > Date.parse(existing.collectedAt)) event.set(observation.assetId, observation)
+    eventsByDate.set(date, event)
+  }
+
+  const eventDates = [...eventsByDate]
+    .filter(([, event]) => [...FUEL_TREND_ASSETS].every((assetId) => event.has(assetId)))
+    .map(([date]) => date)
+    .sort((left, right) => left.localeCompare(right))
+    .slice(-FUEL_EVENT_COUNT)
+
+  return eventDates.flatMap((date) => [...eventsByDate.get(date).values()].map((item) => ({
+    assetId: item.assetId,
+    value: item.value,
+    percentage: item.percentage ?? null,
+    date,
+    timestamp: item.metadata.effectiveFrom,
+    observedAt: item.observedAt,
+    collectedAt: item.collectedAt,
+  })))
 }
 
 export function buildBrandTrendHistory(history, now = Date.now(), decisions = null) {

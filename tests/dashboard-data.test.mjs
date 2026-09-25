@@ -15,18 +15,48 @@ function observation(assetId, value, timestamp, extra = {}) {
 }
 
 test('日级趋势只包含近一年资产、排除北京时间当天且保留必要字段', () => {
-  const now = Date.parse('2026-08-24T12:00:00.000Z')
+  const now = Date.parse('2026-09-25T08:00:00.000Z')
   const history = [
     observation('international-gold-cny-gram', 1001, '2026-08-24T08:00:00.000Z'),
     observation('au9999', 1003, '2026-08-23T08:00:00.000Z'),
     observation('international-silver-cny-gram', 15.9, '2026-08-24T08:00:00.000Z'),
     observation('brand-gold-chow-sang-sang', 1390, '2026-08-24T08:00:00.000Z'),
-    observation('guangdong-fuel-92', 7.8, '2026-07-10T16:00:00.000Z'),
-    observation('guangdong-fuel-95', 8.4, '2026-08-14T16:00:00.000Z', { metadata: { effectiveFrom: '2026-08-14T16:00:00.000Z' } }),
+    ...[
+      ['guangdong-fuel-92', 7.8], ['guangdong-fuel-95', 8.45], ['guangdong-fuel-0-diesel', 7.45],
+    ].map(([assetId, value]) => observation(assetId, value, '2026-08-14T16:00:00.000Z', { metadata: { effectiveFrom: '2026-08-14T16:00:00.000Z' } })),
   ]
   const trend = buildTrendHistory(history, now)
-  assert.deepEqual(trend.map((item) => item.assetId), ['guangdong-fuel-95'])
-  assert.deepEqual(Object.keys(trend[0]).sort(), ['assetId', 'collectedAt', 'date', 'observedAt', 'percentage', 'timestamp', 'value'])
+  assert.deepEqual(trend.filter((item) => item.assetId.startsWith('guangdong-fuel-')).map((item) => item.assetId), [
+    'guangdong-fuel-0-diesel', 'guangdong-fuel-92', 'guangdong-fuel-95',
+  ])
+  assert.deepEqual(Object.keys(trend.find((item) => item.assetId === 'guangdong-fuel-92')).sort(), ['assetId', 'collectedAt', 'date', 'observedAt', 'percentage', 'timestamp', 'value'])
+})
+
+test('油价趋势不受30天窗口限制，只输出最近十次三油品日期一致的已生效事件', () => {
+  const now = Date.parse('2026-09-25T08:00:00.000Z')
+  const dates = [
+    '2026-01-20', '2026-02-03', '2026-02-24', '2026-03-09', '2026-03-23', '2026-04-07',
+    '2026-04-21', '2026-05-08', '2026-05-21', '2026-06-04', '2026-06-18', '2026-07-03',
+    '2026-07-17', '2026-07-31', '2026-08-14', '2026-08-28', '2026-09-11', '2026-09-24',
+  ]
+  const assetIds = ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel']
+  const history = dates.flatMap((date, eventIndex) => assetIds.map((assetId, assetIndex) => observation(
+    assetId,
+    7 + eventIndex / 10 + assetIndex / 100,
+    `${date}T16:00:00.000Z`,
+    { metadata: { effectiveFrom: `${date}T16:00:00.000Z` } },
+  )))
+  history.push(observation('guangdong-fuel-92', 8.7, '2026-09-25T16:00:00.000Z', { metadata: { effectiveFrom: '2026-09-25T16:00:00.000Z' } }))
+  history.push(observation('guangdong-fuel-92', 8.2, '2026-04-21T16:00:00.000Z', { metadata: { effectiveFrom: '2026-04-21T16:00:00.000Z' } }))
+
+  const trend = buildTrendHistory(history, now).filter((item) => item.assetId.startsWith('guangdong-fuel-'))
+  const eventDates = [...new Set(trend.map((item) => item.date))]
+  assert.equal(eventDates.length, 10)
+  assert.equal(eventDates[0], '2026-05-22')
+  assert.equal(eventDates.at(-1), '2026-09-25')
+  assert.equal(trend.length, 30)
+  assert.ok(eventDates.every((date) => assetIds.every((assetId) => trend.some((item) => item.date === date && item.assetId === assetId))))
+  assert.equal(trend.some((item) => item.date === '2026-09-26'), false, '未来upcoming日期不进入历史趋势')
 })
 
 test('同一自然日趋势记录只保留采集时间最晚的一条', () => {

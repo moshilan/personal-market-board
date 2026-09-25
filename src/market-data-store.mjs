@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { buildTrendDecisions } from './trend-decisions.mjs'
+import { GUANGDONG_FUEL_HISTORY_BACKFILL } from './guangdong-fuel-history.mjs'
 
 export const STORE_VERSION = 1
 export const HISTORY_INTERVAL_MS = 30 * 60 * 1_000
@@ -179,7 +180,8 @@ function shouldAppendHistory(history, observation) {
   if (!observation.available) return false
   const assetHistory = history.filter((item) => item.assetId === observation.assetId)
   if (observation.metadata.effectiveFrom) {
-    return !assetHistory.some((item) => item.metadata.effectiveFrom === observation.metadata.effectiveFrom)
+    const effectiveDate = chinaDate(observation.metadata.effectiveFrom)
+    return !assetHistory.some((item) => item.metadata.effectiveFrom && chinaDate(item.metadata.effectiveFrom) === effectiveDate)
   }
   if (observation.assetId.startsWith('brand-') && observation.metadata.quoteDate) {
     return !assetHistory.some((item) => item.metadata.quoteDate === observation.metadata.quoteDate)
@@ -231,9 +233,41 @@ export function buildDisplaySnapshot(liveSnapshot, store) {
   }
 }
 
+function chinaDate(timestamp) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date(timestamp))
+}
+
+function backfillGuangdongFuelHistory(store, collectedAt) {
+  for (const event of [...GUANGDONG_FUEL_HISTORY_BACKFILL].reverse()) {
+    if (Date.parse(event.effectiveFrom) > Date.parse(collectedAt)) continue
+    const snapshot = normalizeSnapshot({
+      collectedAt,
+      brands: [],
+      guangdongFuel: Object.entries(event.prices).map(([product, value]) => ({
+        name: product,
+        product,
+        available: true,
+        value,
+        currency: 'CNY',
+        unit: 'liter',
+        effectiveFrom: event.effectiveFrom,
+        collectedAt,
+        sourceUrl: event.sourceUrl,
+        sourceName: '广东省发展改革委',
+      })),
+    })
+    for (const observation of snapshot.observations) {
+      if (shouldAppendHistory(store.history, observation)) store.history.push(observation)
+    }
+  }
+}
+
 export async function persistSnapshot(rawSnapshot, storePath) {
   const liveSnapshot = normalizeSnapshot(rawSnapshot)
   const store = await readStore(storePath)
+  backfillGuangdongFuelHistory(store, liveSnapshot.collectedAt)
   store.latestAttempt = liveSnapshot
   if (liveSnapshot.exchangeRates?.available) store.latestExchangeRates = liveSnapshot.exchangeRates
   for (const observation of liveSnapshot.observations) {

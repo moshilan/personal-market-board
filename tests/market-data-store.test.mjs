@@ -101,8 +101,31 @@ test('历史按30分钟、品牌日期和油价生效时间去重', async () => 
   assert.equal(getHistory(third.store, 'international-gold-cny-gram').length, 2)
   assert.equal(getHistory(third.store, 'domestic-international-gold-spread').length, 2)
   assert.equal(getHistory(third.store, 'brand-gold-chow-sang-sang').length, 1)
-  assert.equal(getHistory(third.store, 'guangdong-fuel-92').length, 1)
+  assert.equal(getHistory(third.store, 'guangdong-fuel-92').length, 7)
   assert.equal(buildDisplaySnapshot(first.liveSnapshot, second.store).observations[0].displayStatus, 'current')
+})
+
+test('广东官方公告历史补齐最近十次且按生效日去重', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
+  const storePath = join(directory, 'market-data.json')
+  const first = await persistSnapshot(snapshot('2026-09-25T08:50:14.000Z'), storePath)
+  const fuel = first.store.history.filter((item) => item.assetId.startsWith('guangdong-fuel-'))
+  const dates = [...new Set(fuel.map((item) => item.metadata.effectiveFrom))].sort()
+  assert.equal(dates.length, 10)
+  assert.deepEqual(dates.map((date) => date.slice(0, 10)), [
+    '2026-05-21', '2026-06-04', '2026-06-18', '2026-07-03', '2026-07-17',
+    '2026-07-31', '2026-08-14', '2026-08-28', '2026-09-11', '2026-09-24',
+  ])
+  for (const effectiveFrom of dates) {
+    const event = fuel.filter((item) => item.metadata.effectiveFrom === effectiveFrom)
+    assert.deepEqual(event.map((item) => item.assetId).sort(), [
+      'guangdong-fuel-0-diesel', 'guangdong-fuel-92', 'guangdong-fuel-95',
+    ])
+    assert.ok(event.every((item) => item.source.url.startsWith('https://drc.gd.gov.cn/spjg/content/post_')))
+  }
+
+  const repeated = await persistSnapshot(snapshot('2026-09-25T09:20:14.000Z'), storePath)
+  assert.equal(repeated.store.history.filter((item) => item.metadata.effectiveFrom === '2026-09-24T16:00:00.000Z').length, 3)
 })
 
 test('历史保留最近366天，当前成功缓存不受影响', async () => {
