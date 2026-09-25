@@ -73,6 +73,13 @@ function referenceDate(value) {
   return match ? `${match[1]}年${Number(match[2])}月${Number(match[3])}日` : dateTime(value)
 }
 
+function exchangeReferenceNote(exchangeRates) {
+  if (!exchangeRates?.available || exchangeRates.rateType !== 'daily-reference') return null
+  const match = exchangeRates.sourceObservedAt?.match(/^\d{4}-(\d{2})-(\d{2})$/)
+  if (!match) return null
+  return element('p', 'exchange-reference-note', `人民币折算采用 ECB ${Number(match[1])}月${Number(match[2])}日参考汇率，非盘中实时汇率。`)
+}
+
 function marketClosedNote(item) {
   if (item.displayStatus !== 'market-closed' || !item.observedAt) return null
   return element('p', 'quote-meta market-closed-note', `休市 · 最近交易日 ${dateTime(item.observedAt)}`)
@@ -495,6 +502,8 @@ function renderGold(view) {
   marketSection.append(goldGrid)
   const goldCacheNote = cacheNote(view.gold)
   if (goldCacheNote) marketSection.append(goldCacheNote)
+  const goldExchangeNote = exchangeReferenceNote(view.exchangeRates)
+  if (goldExchangeNote) marketSection.append(goldExchangeNote)
   const references = element('div', 'reference-list')
   view.references.forEach((item) => references.append(quoteCard(item, `reference-card ${['xau-usd', 'xag-usd'].includes(item.assetId) ? 'spot-quote' : ''}`, { source: true, unitLabel: item.unitLabel === 'USD/盎司' ? '美元/盎司' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(references)
@@ -551,6 +560,8 @@ function renderSilver(view) {
   marketSection.append(silverGrid)
   const silverCacheNote = cacheNote(view.silver)
   if (silverCacheNote) marketSection.append(silverCacheNote)
+  const silverExchangeNote = exchangeReferenceNote(view.exchangeRates)
+  if (silverExchangeNote) marketSection.append(silverExchangeNote)
   const references = element('div', 'reference-list')
   view.references.forEach((item) => references.append(quoteCard(item, `reference-card ${['xau-usd', 'xag-usd'].includes(item.assetId) ? 'spot-quote' : ''}`, { source: true, unitLabel: item.unitLabel === 'USD/盎司' ? '美元/盎司' : item.unitLabel, showExceptionalMeta: Boolean(marketDate) })))
   marketSection.append(references)

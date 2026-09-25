@@ -44,6 +44,14 @@ test('金价与油价视图保留完整内容，首页保留三项油价摘要',
   assert.equal(views.fuel.fuel[0].effectiveAt, null)
 })
 
+test('ECB汇率日期传入金银详情视图，不加入首页视图', () => {
+  const exchangeRates = { available: true, sourceObservedAt: '2026-09-24', rateType: 'daily-reference' }
+  const views = buildMarketViews({ observations: [], exchangeRates })
+  assert.equal(views.gold.exchangeRates, exchangeRates)
+  assert.equal(views.silver.exchangeRates, exchangeRates)
+  assert.equal(Object.hasOwn(views.home, 'exchangeRates'), false)
+})
+
 test('首页展示国际、国内白银的紧凑摘要', () => {
   const home = buildHomeView({ observations: [
     observation('xag-usd', 68.2),

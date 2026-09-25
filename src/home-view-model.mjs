@@ -72,8 +72,8 @@ export function buildMarketViews(displaySnapshot) {
       fuel,
       upcomingFuel,
     },
-    gold: { gold, references, brands },
-    silver: { silver, references: silverReferences },
+    gold: { gold, references, brands, exchangeRates: displaySnapshot?.exchangeRates ?? null },
+    silver: { silver, references: silverReferences, exchangeRates: displaySnapshot?.exchangeRates ?? null },
     fuel: { fuel, upcomingFuel },
     exchange: { exchangeRates: displaySnapshot.exchangeRates ?? null },
   }

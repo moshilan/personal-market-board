@@ -42,6 +42,25 @@ export function parseEcbExchangeRates(csv, collectedAt, now = collectedAt) {
   return { available: true, base: 'USD', rates, sourceObservedAt, collectedAt, sourceTimePrecision: 'date', sourceUrl: EXCHANGE_RATES_SOURCE_URL, sourceName: '欧洲央行', referenceBase: 'EUR', rateType: 'daily-reference', reason: null }
 }
 
+export function selectExchangeRatesForCalculations(liveRates, cachedRates) {
+  if (liveRates?.available) return liveRates
+  if (cachedRates?.available && cachedRates.rateType === 'daily-reference') return cachedRates
+  return liveRates
+}
+
+export function buildUsdCnyObservation(exchangeRates, collectedAt) {
+  const value = exchangeRates?.rates?.CNY
+  if (!exchangeRates?.available || exchangeRates.base !== 'USD' || !Number.isFinite(value) || value <= 0) {
+    return { name: 'USD/CNY', available: false, sourceUrl: exchangeRates?.sourceUrl ?? EXCHANGE_RATES_SOURCE_URL, sourceName: exchangeRates?.sourceName ?? '欧洲央行', collectedAt, reason: exchangeRates?.reason ?? 'ECB USD/CNY汇率不可用' }
+  }
+  return {
+    name: 'USD/CNY', available: true, value, baseCurrency: 'USD', quoteCurrency: 'CNY',
+    observedAt: exchangeRates.sourceObservedAt, collectedAt,
+    sourceUrl: exchangeRates.sourceUrl, sourceName: exchangeRates.sourceName,
+    sourceTimePrecision: exchangeRates.sourceTimePrecision,
+  }
+}
+
 export function convertExchangeRate(amount, from, to, exchangeRates) {
   if (typeof amount === 'string' && amount.trim() === '') return null
   const value = Number(amount)

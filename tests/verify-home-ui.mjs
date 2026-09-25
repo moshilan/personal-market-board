@@ -45,6 +45,7 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '白银摘要', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '品牌黄金', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价摘要', exact: true }).waitFor())
+    assert.equal(await page.locator('.exchange-reference-note').count(), 0, '首页不应出现ECB折算说明')
     assert.equal(await page.locator('#page-kicker').isHidden(), true)
     assert.equal(await page.locator('.topbar').evaluate((topbar) => topbar.classList.contains('home-topbar')), true)
     assert.match(await page.locator('#collection-status').innerText(), /^今日采集状态\s+(已更新 · \d{2}:\d{2}|待更新|数据异常)$/)
@@ -86,6 +87,12 @@ try {
       return brandBottom <= navigationTop && fuelBottom <= navigationTop
     }), true, '滚动到页面底部时，品牌摘要和油价摘要不应被底部导航遮挡')
     const snapshot = await page.evaluate(() => fetch('/api/home.json', { cache: 'no-store' }).then((response) => response.json()))
+    const ecbReferenceRates = {
+      available: true, base: 'USD', rates: { CNY: 6.712589073634204, USD: 1, HKD: 7.842702560042227, JPY: 158.8545790446028, EUR: 0.8797395970792645, GBP: 0.7564528899445764, KRW: 1368.6020937802411, SGD: 1.279933139790622 },
+      sourceObservedAt: '2026-09-24', collectedAt: '2026-09-25T07:37:44.761Z', sourceTimePrecision: 'date', sourceName: '欧洲央行', rateType: 'daily-reference',
+    }
+    snapshot.views.gold.exchangeRates = ecbReferenceRates
+    snapshot.views.silver.exchangeRates = ecbReferenceRates
     if (!snapshot.views.home.upcomingFuel) assert.equal(await page.locator('.fuel-upcoming, .fuel-upcoming-summary').count(), 0)
     const anomalousSnapshot = structuredClone(snapshot)
     anomalousSnapshot.views.home.xauUsd.displayStatus = 'cached'
@@ -100,7 +107,9 @@ try {
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.locator('.fuel-section .quote-meta').count(), 0)
     await page.unroute('**/api/home.json')
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(snapshot) }))
     await page.getByRole('button', { name: '刷新显示' }).click()
+    await page.unroute('**/api/home.json')
     assert.deepEqual(consoleErrors, [])
     await page.getByRole('button', { name: '黄金' }).click()
     assert.equal(await page.locator('#collection-status').isHidden(), true, '金价页不应显示今日采集状态')
@@ -114,6 +123,8 @@ try {
     assert.equal(await page.getByText('USD/CNY', { exact: true }).count(), 0)
     await assert.doesNotReject(() => page.getByText('美元/盎司', { exact: true }).waitFor())
     assert.equal(await page.getByText('CNY/美元', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('人民币折算采用 ECB 9月24日参考汇率，非盘中实时汇率。', { exact: true }).count(), 1)
+    assert.equal(await page.locator('.exchange-reference-note').count(), 1, '黄金详情页只显示一次汇率说明')
     await assert.doesNotReject(() => page.getByText('折算人民币/克', { exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText('上金所金价 - 国际折算价', { exact: true }).waitFor())
     assert.equal(await page.locator('.quote-heading h3').evaluateAll((headings) => headings.every((heading) => heading.scrollHeight <= heading.clientHeight)), true, '行情主标题不应在窄卡片内换行')
@@ -195,6 +206,9 @@ try {
       const navigationTop = document.querySelector('.bottom-nav').getBoundingClientRect().top
       return document.querySelector('.brand-row:last-child').getBoundingClientRect().bottom <= navigationTop
     }), true, '金价页最后一个品牌不应被底部导航遮挡')
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(snapshot) }))
+    await page.getByRole('button', { name: '刷新显示' }).click()
+    await page.unroute('**/api/home.json')
     await page.getByRole('button', { name: '白银' }).click()
     assert.equal(await page.locator('#collection-status').isHidden(), true, '白银页不应显示今日采集状态')
     assert.equal(await page.locator('#page-title').textContent(), '白银')
@@ -204,6 +218,8 @@ try {
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国际白银折算', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国内白银', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '国内外价差', exact: true }).first().waitFor())
+    assert.equal(await page.getByText('人民币折算采用 ECB 9月24日参考汇率，非盘中实时汇率。', { exact: true }).count(), 1)
+    assert.equal(await page.locator('.exchange-reference-note').count(), 1, '白银详情页只显示一次汇率说明')
     await assert.doesNotReject(() => page.getByText('XAG/USD', { exact: true }).waitFor())
     assert.equal(await page.getByText('USD/CNY', { exact: true }).count(), 0)
     await assert.doesNotReject(() => page.getByText('美元/盎司', { exact: true }).waitFor())
@@ -216,10 +232,7 @@ try {
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     const ecbExchangeSnapshot = structuredClone(snapshot)
-    ecbExchangeSnapshot.views.exchange.exchangeRates = {
-      available: true, base: 'USD', rates: { CNY: 7.6302 / 1.1367, USD: 1, HKD: 8.9148 / 1.1367, JPY: 180.57 / 1.1367, EUR: 1 / 1.1367, GBP: 0.85986 / 1.1367, KRW: 1555.69 / 1.1367, SGD: 1.4549 / 1.1367 },
-      sourceObservedAt: '2026-09-24', collectedAt: '2026-09-25T03:30:00.000Z', sourceTimePrecision: 'date', sourceName: '欧洲央行', rateType: 'daily-reference',
-    }
+    ecbExchangeSnapshot.views.exchange.exchangeRates = ecbReferenceRates
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(ecbExchangeSnapshot) }))
     await page.getByRole('button', { name: '刷新显示' }).click()
     await page.getByRole('button', { name: '汇率' }).click()

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { convertExchangeRate, parseEcbExchangeRates, SUPPORTED_CURRENCIES } from '../src/exchange-rates.mjs'
+import { buildUsdCnyObservation, convertExchangeRate, parseEcbExchangeRates, selectExchangeRatesForCalculations, SUPPORTED_CURRENCIES } from '../src/exchange-rates.mjs'
 
 const collectedAt = '2026-09-25T03:30:00.000Z'
 const csv = `KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE\n${[
@@ -27,6 +27,17 @@ test('较早的最近发布工作日可用，且交叉换算沿用同批数据',
   assert.equal(convertExchangeRate(1, 'HKD', 'EUR', rates), rates.rates.EUR / rates.rates.HKD)
   assert.equal(convertExchangeRate(1, 'CNY', 'SGD', rates), rates.rates.SGD / rates.rates.CNY)
   assert.equal(convertExchangeRate(1, 'EUR', 'EUR', rates), 1)
+})
+
+test('金银折算共用ECB批次的USD/CNY及源数据日，失败时只回用ECB缓存', () => {
+  const usdCny = buildUsdCnyObservation(rates, collectedAt)
+  assert.equal(usdCny.value, rates.rates.CNY)
+  assert.equal(usdCny.observedAt, rates.sourceObservedAt)
+  assert.equal(usdCny.sourceUrl, rates.sourceUrl)
+  const unavailable = { available: false, reason: 'network error' }
+  assert.equal(selectExchangeRatesForCalculations(unavailable, rates), rates)
+  assert.equal(selectExchangeRatesForCalculations(rates, unavailable), rates)
+  assert.equal(selectExchangeRatesForCalculations(unavailable, { available: true, base: 'USD', rates: { CNY: 7.2 }, sourceName: 'Currency Exchange Tool' }), unavailable)
 })
 
 test('缺币种、重复数据、混合日期、未来日期或无效汇率时整批不可用', () => {

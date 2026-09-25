@@ -1,12 +1,12 @@
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
-import { persistSnapshot } from '../src/market-data-store.mjs'
-import { EXCHANGE_RATES_SOURCE_URL, parseEcbExchangeRates, unavailableExchangeRates } from '../src/exchange-rates.mjs'
+import { persistSnapshot, readStore } from '../src/market-data-store.mjs'
+import { EXCHANGE_RATES_SOURCE_URL, buildUsdCnyObservation, parseEcbExchangeRates, selectExchangeRatesForCalculations, unavailableExchangeRates } from '../src/exchange-rates.mjs'
+import { deriveGoldSpread, deriveInternationalGoldCny } from '../src/gold-calculations.mjs'
 import { deriveDomesticSilverCny, deriveInternationalSilverCny, deriveSilverSpread } from '../src/silver-calculations.mjs'
 import { findLatestValidSgeDailyQuotation, makeSgeFallbackRecord } from '../src/sge-daily-quotation.mjs'
 import { findGuangdongFuelAnnouncements, GUANGDONG_FUEL_INDEX_URL } from '../src/guangdong-fuel.mjs'
 
-const OUNCE_TO_GRAM = 31.1034768
 const TIME_ZONE = 'Asia/Shanghai'
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url))
 const DEFAULT_STORE_PATH = resolve(SCRIPT_DIRECTORY, '../data/market-data.json')
@@ -14,7 +14,6 @@ const DEFAULT_STORE_PATH = resolve(SCRIPT_DIRECTORY, '../data/market-data.json')
 const SOURCES = {
   xauUsdPrimary: 'https://xaus.com/api/v1/spot',
   xauUsdBackup: 'https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT&include=sources',
-  usdCny: 'https://www.currencyexchangetool.com/api/v1/convert?amount=1&from=USD&to=CNY',
   exchangeRates: EXCHANGE_RATES_SOURCE_URL,
   au9999: 'https://www.sge.com.cn/h5_sjzx/yshq',
   agTd: 'https://www.sge.com.cn/h5_sjzx/yshq',
@@ -155,31 +154,6 @@ async function collectXauUsd(collectedAt, options = {}) {
   }
 }
 
-async function collectUsdCny(collectedAt) {
-  try {
-    const payload = await getJson(SOURCES.usdCny)
-    const observedAt = new Date(payload.updatedAt)
-    if (Number.isNaN(observedAt.getTime())) throw new Error('缺少有效来源时间')
-    const ageMs = collectedAt.getTime() - observedAt.getTime()
-    if (shanghaiDate(observedAt) !== shanghaiDate(collectedAt)) throw new Error('来源时间不属于当天')
-    if (ageMs < -5 * 60 * 1_000 || ageMs > 2 * 60 * 60 * 1_000) throw new Error('来源时间超过2小时')
-
-    return {
-      name: 'USD/CNY',
-      available: true,
-      value: parseNumber(payload.rate),
-      baseCurrency: 'USD',
-      quoteCurrency: 'CNY',
-      observedAt: observedAt.toISOString(),
-      collectedAt: collectedAt.toISOString(),
-      sourceUrl: SOURCES.usdCny,
-      sourceName: 'Currency Exchange Tool',
-    }
-  } catch (error) {
-    return unavailable('USD/CNY', SOURCES.usdCny, collectedAt.toISOString(), error.message)
-  }
-}
-
 async function collectExchangeRates(collectedAt) {
   try {
     const primary = parseEcbExchangeRates(await getText(SOURCES.exchangeRates), collectedAt.toISOString(), collectedAt)
@@ -317,61 +291,6 @@ async function collectGuangdongFuel(collectedAt) {
   }
 }
 
-function deriveInternationalGoldCny(xauUsd, usdCny, collectedAt) {
-  if (!xauUsd.available || !usdCny.available) {
-    return unavailable('国际黄金人民币折算价', 'derived', collectedAt.toISOString(), 'XAU/USD或USD/CNY不可用')
-  }
-  return {
-    name: '国际黄金人民币折算价',
-    available: true,
-    value: xauUsd.value * usdCny.value / OUNCE_TO_GRAM,
-    currency: 'CNY',
-    unit: 'gram',
-    sourceUrl: 'derived',
-    sourceName: '公式计算',
-    observedAt: xauUsd.observedAt ?? usdCny.observedAt,
-    calculatedAt: collectedAt.toISOString(),
-    inputs: [
-      { name: xauUsd.name, sourceUrl: xauUsd.sourceUrl, observedAt: xauUsd.observedAt },
-      { name: usdCny.name, sourceUrl: usdCny.sourceUrl, observedAt: usdCny.observedAt },
-    ],
-  }
-}
-
-function deriveSpread(au9999, internationalGoldCny, collectedAt) {
-  if (!au9999.available || !internationalGoldCny.available) {
-    return unavailable('国内外价差', 'derived', collectedAt.toISOString(), 'Au99.99或国际黄金人民币折算价不可用')
-  }
-  const asChinaDate = (value) => {
-    if (!value) return null
-    if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return value
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? null : shanghaiDate(date)
-  }
-  if (au9999.displayOnly && asChinaDate(au9999.observedAt) !== asChinaDate(internationalGoldCny.observedAt)) {
-    return unavailable('国内外价差', 'derived', collectedAt.toISOString(), '休市日无法取得同一交易日国际黄金折算价', { preventCache: true })
-  }
-  const value = au9999.value - internationalGoldCny.value
-  return {
-    name: '国内外价差',
-    available: true,
-    value,
-    percentage: value / internationalGoldCny.value * 100,
-    currency: 'CNY',
-    unit: 'gram',
-    sourceUrl: 'derived',
-    sourceName: '公式计算',
-    observedAt: au9999.observedAt,
-    displayOnly: au9999.displayOnly === true,
-    marketStatus: au9999.marketStatus ?? null,
-    calculatedAt: collectedAt.toISOString(),
-    inputs: [
-      { name: au9999.name, sourceUrl: au9999.sourceUrl, observedAt: au9999.observedAt },
-      { name: internationalGoldCny.name, calculatedAt: internationalGoldCny.calculatedAt },
-    ],
-  }
-}
-
 const collectedAt = now()
 const simulateCollectionFailure = process.argv.includes('--simulate-collection-failure')
 const xauOptions = {
@@ -385,11 +304,10 @@ const unavailableBrands = (reason) => ['周生生', '周大福', '六福珠宝',
 const unavailableFuel = (reason) => ['92号汽油', '95号汽油', '0号柴油', '98号汽油'].map((product) => (
   unavailable(product, SOURCES.guangdongFuel, collectedAt.toISOString(), reason)
 ))
-const [xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, brands, guangdongFuelResult] = simulateCollectionFailure
+const [xauUsd, xagUsd, exchangeRates, au9999, agTd, brands, guangdongFuelResult] = simulateCollectionFailure
   ? [
       unavailable('XAU/USD', SOURCES.xauUsdPrimary, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('XAG/USD', SOURCES.xauUsdPrimary, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
-      unavailable('USD/CNY', SOURCES.usdCny, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailableExchangeRates(collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('Au99.99', SOURCES.au9999, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('Ag(T+D)', SOURCES.agTd, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
@@ -399,16 +317,18 @@ const [xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, brands, guangdongFue
   : await Promise.all([
       collectXauUsd(collectedAt, xauOptions),
       collectXagUsd(collectedAt),
-      collectUsdCny(collectedAt),
       collectExchangeRates(collectedAt),
       collectAu9999(collectedAt),
       collectAgTd(collectedAt),
       collectBrands(collectedAt).catch((error) => unavailableBrands(error.message)),
       collectGuangdongFuel(collectedAt),
     ])
+const exchangeRateStore = await readStore(DEFAULT_STORE_PATH)
+const calculationExchangeRates = selectExchangeRatesForCalculations(exchangeRates, exchangeRateStore.latestExchangeRates)
+const usdCny = buildUsdCnyObservation(calculationExchangeRates, collectedAt.toISOString())
 const guangdongFuel = guangdongFuelResult.observations
 const internationalGoldCny = deriveInternationalGoldCny(xauUsd, usdCny, collectedAt)
-const spread = deriveSpread(au9999, internationalGoldCny, collectedAt)
+const spread = deriveGoldSpread(au9999, internationalGoldCny, collectedAt)
 const internationalSilverCny = deriveInternationalSilverCny(xagUsd, usdCny, collectedAt)
 const domesticSilverCny = deriveDomesticSilverCny(agTd, collectedAt)
 const silverSpread = deriveSilverSpread(domesticSilverCny, internationalSilverCny, collectedAt)
