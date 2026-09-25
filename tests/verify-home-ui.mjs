@@ -226,6 +226,8 @@ try {
     await pairedTrend.tap({ position: { x: 0.9 * 320, y: 85 } })
     assert.deepEqual(await pairedSelection.locator('.trend-selection-values p').allTextContents(), ['国际黄金折算　960.00 元/克', '国内黄金　990.00 元/克'])
     assert.equal(await pairedTrend.locator('.trend-selected-guide[visibility="visible"]').count(), 1, '选中日期显示弱化竖线')
+    assert.deepEqual(await pairedTrend.evaluate((svg) => ({ outlineStyle: getComputedStyle(svg).outlineStyle, cardBorder: getComputedStyle(svg.closest('.trend-card')).borderWidth })), { outlineStyle: 'none', cardBorder: '1px' }, '点选状态仅用竖线和数值卡表达，图表卡保持细边框')
+    await page.locator('.trend-card').nth(0).screenshot({ path: resolve(outputDirectory, `gold-trend-selected-${width}.png`) })
     await pairedSelection.tap()
     await pairedSelection.waitFor({ state: 'hidden' })
     assert.equal(await pairedTrend.locator('.trend-selected-guide[visibility="visible"]').count(), 0, '点击数值卡片后竖线应隐藏')

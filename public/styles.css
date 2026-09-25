@@ -136,12 +136,13 @@ section { margin-top: 31px; }
 .trend-legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .trend-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 .trend-svg { display: block; width: 100%; height: auto; margin-top: 8px; overflow: visible; touch-action: pan-y; cursor: crosshair; }
+.trend-svg:focus, .trend-svg:focus-visible { outline: none; }
 .trend-selected-guide { stroke: #8b9891; stroke-width: 1; stroke-dasharray: 3 3; opacity: .65; }
 .trend-selection { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px; margin-top: 2px; padding: 8px 10px; border-radius: 10px; background: #f4f5ef; color: #61736d; font-size: 11px; }
 .trend-selection[hidden] { display: none; }
 .trend-selection { cursor: pointer; }
 .trend-selection:hover { background: #ecefe7; }
-.trend-selection:focus-visible, .trend-svg:focus-visible { outline: 2px solid #769187; outline-offset: 2px; }
+.trend-selection:focus-visible { outline: 2px solid #769187; outline-offset: 2px; }
 .trend-selection-date { color: #52635d; white-space: nowrap; }
 .trend-selection-values { display: grid; gap: 3px; min-width: 0; text-align: right; }
 .trend-selection-values p { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }

@@ -219,7 +219,7 @@ function chartSvg(series, { zeroLine = false, selectionPanel } = {}) {
   const timeRange = domain.maxTime - domain.minTime || 1
   const x = (point) => hasTimeRange ? left + (Date.parse(point.timestamp) - domain.minTime) / timeRange * plotWidth : left + plotWidth / 2
   const y = (value) => top + (domain.maxValue - value) / valueRange * plotHeight
-  const svg = svgNode('svg', { class: 'trend-svg', viewBox: `0 0 ${width} ${height}`, role: 'group', 'aria-label': '历史趋势图，点击或触摸查看数值', tabindex: '0' })
+  const svg = svgNode('svg', { class: 'trend-svg', viewBox: `0 0 ${width} ${height}`, role: 'group', 'aria-label': '历史趋势图，点击或触摸查看数值' })
   ;[0, .5, 1].forEach((ratio) => svg.append(svgNode('line', { x1: left, y1: top + plotHeight * ratio, x2: width - right, y2: top + plotHeight * ratio, class: 'trend-grid-line' })))
   if (zeroLine && domain.minValue <= 0 && domain.maxValue >= 0) svg.append(svgNode('line', { x1: left, y1: y(0), x2: width - right, y2: y(0), class: 'trend-zero-line' }))
   const selectedGuide = svgNode('line', { y1: top, y2: top + plotHeight, class: 'trend-selected-guide', visibility: 'hidden', 'pointer-events': 'none' })
@@ -282,7 +282,6 @@ function chartSvg(series, { zeroLine = false, selectionPanel } = {}) {
     selectedGuide.setAttribute('visibility', 'hidden')
     selectionPanel.hidden = true
     selectionPanel.tabIndex = -1
-    svg.focus()
   }
   pointsByDate.forEach((entry, date) => {
     const selectedX = datePositions.get(date)
