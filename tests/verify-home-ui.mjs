@@ -215,13 +215,21 @@ try {
     }
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
+    const ecbExchangeSnapshot = structuredClone(snapshot)
+    ecbExchangeSnapshot.views.exchange.exchangeRates = {
+      available: true, base: 'USD', rates: { CNY: 7.6302 / 1.1367, USD: 1, HKD: 8.9148 / 1.1367, JPY: 180.57 / 1.1367, EUR: 1 / 1.1367, GBP: 0.85986 / 1.1367, KRW: 1555.69 / 1.1367, SGD: 1.4549 / 1.1367 },
+      sourceObservedAt: '2026-09-24', collectedAt: '2026-09-25T03:30:00.000Z', sourceTimePrecision: 'date', sourceName: '欧洲央行', rateType: 'daily-reference',
+    }
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(ecbExchangeSnapshot) }))
+    await page.getByRole('button', { name: '刷新显示' }).click()
     await page.getByRole('button', { name: '汇率' }).click()
     assert.equal(await page.getByRole('heading', { name: '汇率', exact: true }).count(), 1)
     assert.equal(await page.locator('.bottom-nav button').count(), 5)
     assert.equal(await page.locator('.exchange-select').count(), 2)
     assert.equal(await page.getByRole('button', { name: '交换币种' }).count(), 1)
     assert.equal(await page.getByRole('button', { name: '交换币种' }).innerText(), '⇄')
-    assert.match(await page.locator('.exchange-source').innerText(), /^来源：(ExchangeRate\.fun|Currency Exchange Tool)( · 缓存)? · 数据时间：\d+月\d+日 \d{1,2}:\d{2}$/)
+    assert.equal(await page.getByText('参考汇率数据日期：2026年9月24日', { exact: true }).count(), 1)
+    assert.equal(await page.locator('.exchange-source').innerText(), '来源：欧洲央行 · 每日参考汇率（非盘中实时）')
     assert.equal(await page.locator('.exchange-row').count(), 7)
     assert.equal(await page.locator('.exchange-select').evaluateAll((items) => {
       const widths = items.map((item) => Math.round(item.getBoundingClientRect().width))
@@ -239,6 +247,7 @@ try {
     await page.locator('.exchange-amount').fill('-1')
     assert.equal(await page.locator('.exchange-result').innerText(), '')
     assert.deepEqual(thirdPartyRequests, [])
+    await page.unroute('**/api/home.json')
     const unavailableExchangeSnapshot = structuredClone(snapshot)
     unavailableExchangeSnapshot.views.exchange.exchangeRates = { available: false, rates: {}, reason: '后台数据不可用' }
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(unavailableExchangeSnapshot) }))
@@ -251,14 +260,14 @@ try {
     const cachedExchangeSnapshot = structuredClone(snapshot)
     cachedExchangeSnapshot.views.exchange.exchangeRates = {
       available: true, base: 'USD', rates: { CNY: 6.71, USD: 1, HKD: 7.84, JPY: 158, EUR: 0.88, GBP: 0.76, KRW: 1360, SGD: 1.28 },
-      sourceObservedAt: '2026-08-24T08:00:00.000Z', collectedAt: '2026-08-24T08:00:00.000Z', sourceName: 'ExchangeRate.fun',
+      sourceObservedAt: '2026-09-24', collectedAt: '2026-09-25T03:30:00.000Z', sourceTimePrecision: 'date', sourceName: '欧洲央行', rateType: 'daily-reference',
       displayStatus: 'cached', liveStatus: 'unavailable', liveReason: '上游请求失败',
     }
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(cachedExchangeSnapshot) }))
     await page.getByRole('button', { name: '刷新显示' }).click()
     await page.getByRole('button', { name: '汇率' }).click()
-    assert.equal(await page.getByText('使用最近一次有效缓存', { exact: true }).count(), 1)
-    assert.match(await page.locator('.exchange-source').innerText(), /ExchangeRate\.fun · 数据时间：/)
+    assert.equal(await page.getByText('使用最近一次有效缓存 · 参考汇率数据日期：2026年9月24日', { exact: true }).count(), 1)
+    assert.equal(await page.locator('.exchange-source').innerText(), '来源：欧洲央行 · 每日参考汇率（非盘中实时）')
     assert.equal(await page.locator('.exchange-row').count(), 7)
     assert.equal(await page.getByText('汇率数据暂不可用，请稍后查看', { exact: true }).count(), 0)
     await page.unroute('**/api/home.json')

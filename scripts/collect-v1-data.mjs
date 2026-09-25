@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { persistSnapshot } from '../src/market-data-store.mjs'
-import { EXCHANGE_RATES_SOURCE_URL, parseExchangeRateFun, unavailableExchangeRates } from '../src/exchange-rates.mjs'
+import { EXCHANGE_RATES_SOURCE_URL, parseEcbExchangeRates, unavailableExchangeRates } from '../src/exchange-rates.mjs'
 import { deriveDomesticSilverCny, deriveInternationalSilverCny, deriveSilverSpread } from '../src/silver-calculations.mjs'
 import { findLatestValidSgeDailyQuotation, makeSgeFallbackRecord } from '../src/sge-daily-quotation.mjs'
 import { findGuangdongFuelAnnouncements, GUANGDONG_FUEL_INDEX_URL } from '../src/guangdong-fuel.mjs'
@@ -182,10 +182,10 @@ async function collectUsdCny(collectedAt) {
 
 async function collectExchangeRates(collectedAt) {
   try {
-    const primary = parseExchangeRateFun(await getJson(SOURCES.exchangeRates), collectedAt.toISOString(), collectedAt)
-    return primary.available ? primary : unavailableExchangeRates(collectedAt.toISOString(), primary.reason, EXCHANGE_RATES_SOURCE_URL, 'ExchangeRate.fun')
+    const primary = parseEcbExchangeRates(await getText(SOURCES.exchangeRates), collectedAt.toISOString(), collectedAt)
+    return primary.available ? primary : unavailableExchangeRates(collectedAt.toISOString(), primary.reason, EXCHANGE_RATES_SOURCE_URL, '欧洲央行')
   } catch (error) {
-    return unavailableExchangeRates(collectedAt.toISOString(), `ExchangeRate.fun请求失败：${error.message}`, EXCHANGE_RATES_SOURCE_URL, 'ExchangeRate.fun')
+    return unavailableExchangeRates(collectedAt.toISOString(), `欧洲央行参考汇率请求失败：${error.message}`, EXCHANGE_RATES_SOURCE_URL, '欧洲央行')
   }
 }
 

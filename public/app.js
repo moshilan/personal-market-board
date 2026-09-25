@@ -68,6 +68,11 @@ function statusText(item) {
   return '不可用'
 }
 
+function referenceDate(value) {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return match ? `${match[1]}年${Number(match[2])}月${Number(match[3])}日` : dateTime(value)
+}
+
 function marketClosedNote(item) {
   if (item.displayStatus !== 'market-closed' || !item.observedAt) return null
   return element('p', 'quote-meta market-closed-note', `休市 · 最近交易日 ${dateTime(item.observedAt)}`)
@@ -606,9 +611,11 @@ function renderFuel(view) {
 
 function renderExchange(view) {
   const rates = view.exchangeRates
+  const isDailyReference = rates?.rateType === 'daily-reference'
   const fragment = document.createDocumentFragment()
   const converterSection = element('section', 'exchange-section')
-  converterSection.append(sectionHeading('货币换算器', rates?.available ? rates.displayStatus === 'cached' ? '使用最近一次有效缓存' : `数据时间：${dateTime(rates.sourceObservedAt)}` : ''))
+  const rateDateLabel = isDailyReference ? `参考汇率数据日期：${referenceDate(rates.sourceObservedAt)}` : `汇率数据时间：${dateTime(rates?.sourceObservedAt)}`
+  converterSection.append(sectionHeading('货币换算器', rates?.available ? `${rates.displayStatus === 'cached' ? '使用最近一次有效缓存 · ' : ''}${rateDateLabel}` : ''))
   const form = element('div', 'exchange-converter')
   const amount = element('input', 'exchange-amount'); amount.type = 'number'; amount.inputMode = 'decimal'; amount.min = '0'; amount.step = 'any'; amount.placeholder = '输入金额'; amount.value = '1'; amount.setAttribute('aria-label', '金额')
   const from = element('select', 'exchange-select'); from.setAttribute('aria-label', '起始币种')
@@ -631,7 +638,7 @@ function renderExchange(view) {
     const value = rates.rates?.[code] ? rates.rates.CNY / rates.rates[code] * unit : null
     row.append(element('div', 'exchange-currency', `${code} ${name}`), element('strong', value === null ? 'unavailable-value' : '', value === null ? '暂无' : `${unit} ${code} = ${value.toLocaleString('zh-CN', { maximumFractionDigits: 6 })} 元`)); list.append(row)
   })
-  if (rates?.available) listSection.append(list, element('p', 'exchange-source', `来源：${rates.sourceName} · 数据时间：${dateTime(rates.sourceObservedAt)}`))
+  if (rates?.available) listSection.append(list, element('p', 'exchange-source', isDailyReference ? `来源：${rates.sourceName} · 每日参考汇率（非盘中实时）` : `来源：${rates.sourceName} · 历史汇率缓存`))
   fragment.append(converterSection, listSection); update(); return fragment
 }
 

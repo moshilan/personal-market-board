@@ -1,35 +1,47 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { convertExchangeRate, parseExchangeRateFun, SUPPORTED_CURRENCIES } from '../src/exchange-rates.mjs'
+import { convertExchangeRate, parseEcbExchangeRates, SUPPORTED_CURRENCIES } from '../src/exchange-rates.mjs'
 
-const payload = { base: 'USD', timestamp: 1788022811, rates: { CNY: 6.728, HKD: 7.84095, JPY: 160.085, EUR: 0.863222, GBP: 0.738825, KRW: 1377.57, SGD: 1.2743 } }
-const collectedAt = '2026-08-29T17:30:00.000Z'
-const rates = parseExchangeRateFun(payload, collectedAt, collectedAt)
+const collectedAt = '2026-09-25T03:30:00.000Z'
+const csv = `KEY,FREQ,CURRENCY,CURRENCY_DENOM,EXR_TYPE,EXR_SUFFIX,TIME_PERIOD,OBS_VALUE\n${[
+  ['CNY', '7.6302'], ['GBP', '0.85986'], ['HKD', '8.9148'], ['JPY', '180.57'], ['KRW', '1555.69'], ['SGD', '1.4549'], ['USD', '1.1367'],
+].map(([code, value]) => `EXR.D.${code}.EUR.SP00.A,D,${code},EUR,SP00,A,2026-09-24,${value}`).join('\n')}`
+const rates = parseEcbExchangeRates(csv, collectedAt, collectedAt)
 
-test('完整解析8个支持币种并保留源时间与采集时间', () => {
+test('解析 ECB 同批 7 个 EUR 基准报价并归一为 8 个 USD 基准币种', () => {
   assert.equal(rates.available, true)
   assert.deepEqual(Object.keys(rates.rates).sort(), SUPPORTED_CURRENCIES.map(({ code }) => code).sort())
-  assert.equal(rates.sourceObservedAt, '2026-08-29T17:00:11.000Z')
+  assert.equal(rates.sourceObservedAt, '2026-09-24')
   assert.equal(rates.collectedAt, collectedAt)
-  assert.equal(rates.sourceTimePrecision, 'second')
+  assert.equal(rates.sourceTimePrecision, 'date')
+  assert.equal(rates.referenceBase, 'EUR')
+  assert.equal(rates.rates.USD, 1)
+  assert.equal(rates.rates.CNY, 7.6302 / 1.1367)
+  assert.equal(rates.rates.EUR, 1 / 1.1367)
 })
 
-test('交叉换算始终使用同一批USD基准汇率', () => {
-  assert.equal(convertExchangeRate(1, 'CNY', 'USD', rates), 1 / 6.728)
-  assert.equal(convertExchangeRate(1, 'JPY', 'USD', rates), 1 / 160.085)
-  assert.equal(convertExchangeRate(1, 'HKD', 'EUR', rates), 0.863222 / 7.84095)
-  assert.equal(convertExchangeRate(1, 'CNY', 'SGD', rates), 1.2743 / 6.728)
+test('较早的最近发布工作日可用，且交叉换算沿用同批数据', () => {
+  assert.equal(rates.available, true)
+  assert.equal(convertExchangeRate(1, 'CNY', 'USD', rates), 1 / rates.rates.CNY)
+  assert.equal(convertExchangeRate(1, 'JPY', 'USD', rates), 1 / rates.rates.JPY)
+  assert.equal(convertExchangeRate(1, 'HKD', 'EUR', rates), rates.rates.EUR / rates.rates.HKD)
+  assert.equal(convertExchangeRate(1, 'CNY', 'SGD', rates), rates.rates.SGD / rates.rates.CNY)
+  assert.equal(convertExchangeRate(1, 'EUR', 'EUR', rates), 1)
 })
 
-test('过期、非法、空和负数输入不可换算', () => {
-  assert.equal(parseExchangeRateFun(payload, collectedAt, '2026-08-29T20:01:00.000Z').available, false)
+test('缺币种、重复数据、混合日期、未来日期或无效汇率时整批不可用', () => {
+  assert.equal(parseEcbExchangeRates(csv.replace(/EXR\.D\.KRW\.EUR\.SP00\.A[^\n]*\n/, ''), collectedAt, collectedAt).available, false)
+  assert.equal(parseEcbExchangeRates(`${csv}\n${csv.split('\n').at(-1)}`, collectedAt, collectedAt).available, false)
+  assert.equal(parseEcbExchangeRates(csv.replace('2026-09-24,180.57', '2026-09-23,180.57'), collectedAt, collectedAt).available, false)
+  assert.equal(parseEcbExchangeRates(csv.replaceAll('2026-09-24', '2026-09-26'), collectedAt, collectedAt).available, false)
+  assert.equal(parseEcbExchangeRates(csv.replace('2026-09-24,180.57', '2026-09-24,0'), collectedAt, collectedAt).available, false)
+  assert.equal(parseEcbExchangeRates('invalid', collectedAt, collectedAt).available, false)
+})
+
+test('空值、非法金额、负数、币种和不可用批次不能换算', () => {
   assert.equal(convertExchangeRate('', 'CNY', 'USD', rates), null)
+  assert.equal(convertExchangeRate('NaN', 'CNY', 'USD', rates), null)
   assert.equal(convertExchangeRate(-1, 'CNY', 'USD', rates), null)
   assert.equal(convertExchangeRate(1, 'ABC', 'USD', rates), null)
   assert.equal(convertExchangeRate(1, 'CNY', 'USD', { ...rates, available: false }), null)
-})
-
-test('缺少任一支持币种时整批不可用，不用残缺数据换算', () => {
-  const incomplete = { ...payload, rates: { ...payload.rates, KRW: undefined } }
-  assert.equal(parseExchangeRateFun(incomplete, collectedAt, collectedAt).available, false)
 })

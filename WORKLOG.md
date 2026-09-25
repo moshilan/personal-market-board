@@ -253,3 +253,9 @@
 - 实测Currency Exchange Tool返回HTTP 402正文`Payment required / DEPLOYMENT_DISABLED`；ExchangeRate.fun批量端点返回HTTP 200，源时间`2026-09-25T03:00:00Z`，项目解析器接受当日完整8币种数据。Frankfurter和open.er-api也有响应，但数据为日级且不满足本项目2小时当前汇率有效性要求。
 - 汇率采集改用ExchangeRate.fun一次USD基准批量请求；上游失败记录在`latestAttempt.exchangeRates`，只有有效批次才能更新`latestExchangeRates`。展示层在失败时继续使用最近成功批次并标记缓存，同时保留本轮失败原因。
 - 新增汇率缓存保留测试和缓存状态浏览器断言；完整46项Node测试、静态构建、git diff检查及360px/393px页面验收通过。
+
+## 2026-09-25 15:39
+
+- 汇率模块改用ECB官方SDMX CSV批量日参考汇率，校验7个非EUR币种同数据日后折算成USD基准8币种；保留本轮采集失败诊断及最近成功缓存逻辑。
+- 汇率页标注参考汇率数据日期和非盘中实时属性；旧源缓存仍按原来源标示。
+- 实际ECB响应数据日为2026-09-24，8币种解析及交叉换算可用；完整46项Node测试、静态构建、git diff检查及360px/393px浏览器回归通过。
