@@ -34,6 +34,10 @@ function chinaDate(timestamp) {
   return `${parts.year}-${parts.month}-${parts.day}`
 }
 
+function guangdongAdjustmentDate(effectiveFrom) {
+  return new Date(effectiveFrom).toISOString().slice(0, 10)
+}
+
 function buildDailyTrendHistory(history, assetIds, now, { excludeToday = false, windowMs = YEAR_DAYS_MS, allowedDates = null } = {}) {
   const from = now - windowMs
   const today = chinaDate(now)
@@ -78,7 +82,7 @@ function buildFuelTrendHistory(history, now) {
   for (const observation of history) {
     const effectiveFrom = observation.metadata?.effectiveFrom
     if (!observation.available || !FUEL_TREND_ASSETS.has(observation.assetId) || !effectiveFrom || Date.parse(effectiveFrom) > now) continue
-    const date = chinaDate(effectiveFrom)
+    const date = guangdongAdjustmentDate(effectiveFrom)
     const event = eventsByDate.get(date) ?? new Map()
     const existing = event.get(observation.assetId)
     if (!existing || Date.parse(observation.collectedAt) > Date.parse(existing.collectedAt)) event.set(observation.assetId, observation)

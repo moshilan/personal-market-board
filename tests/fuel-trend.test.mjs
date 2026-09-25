@@ -11,14 +11,14 @@ const history = GUANGDONG_FUEL_HISTORY_BACKFILL.flatMap((event) => Object.entrie
     '0号柴油': 'guangdong-fuel-0-diesel',
   }[product],
   value,
-  date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date(event.effectiveFrom)),
+  date: new Date(event.effectiveFrom).toISOString().slice(0, 10),
   timestamp: event.effectiveFrom,
   collectedAt: '2026-09-25T08:55:46.458Z',
 })))
 const olderStoredHistory = ['2025-10-13', '2026-02-24', '2026-04-21'].flatMap((date, index) => assetIds.map((assetId, assetIndex) => ({
   assetId,
   value: 6 + index + assetIndex / 100,
-  date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' }).format(new Date(`${date}T16:00:00.000Z`)),
+  date,
   timestamp: `${date}T16:00:00.000Z`,
   collectedAt: '2026-09-25T08:55:46.458Z',
 })))
@@ -29,28 +29,28 @@ test('油价范围近10次按完整事件数选取且三种油品日期一致', 
   assert.deepEqual(series.map((item) => item.points.length), [10, 10, 10])
   assert.deepEqual(series[0].points.map((item) => item.date), series[1].points.map((item) => item.date))
   assert.deepEqual(series[0].points.map((item) => item.date), series[2].points.map((item) => item.date))
-  assert.equal(series[0].points[0].date, '2026-05-22')
-  assert.equal(series[0].points.at(-1).date, '2026-09-25')
+  assert.equal(series[0].points[0].date, '2026-05-21')
+  assert.equal(series[0].points.at(-1).date, '2026-09-24')
 })
 
 test('半年和一年只展示现有历史中落入北京时间范围的事件', () => {
   const halfYear = fuelTrendPoints({ history: availableHistory }, assetIds, FUEL_TREND_RANGES[1], '2026-09-25')
   const year = fuelTrendPoints({ history: availableHistory }, assetIds, FUEL_TREND_RANGES[2], '2026-09-25')
   assert.deepEqual(halfYear.map((item) => item.points.length), [11, 11, 11])
-  assert.equal(halfYear[0].points[0].date, '2026-04-22')
-  assert.equal(halfYear[0].points.at(-1).date, '2026-09-25')
+  assert.equal(halfYear[0].points[0].date, '2026-04-21')
+  assert.equal(halfYear[0].points.at(-1).date, '2026-09-24')
   assert.deepEqual(year.map((item) => item.points.length), [13, 13, 13])
-  assert.equal(year[0].points[0].date, '2025-10-14')
+  assert.equal(year[0].points[0].date, '2025-10-13')
 })
 
 test('油价范围忽略未来公告、不完整事件和同日重复采集', () => {
-  const alteredHistory = availableHistory.filter((item) => !(item.date === '2026-08-15' && item.assetId === 'guangdong-fuel-95'))
+  const alteredHistory = availableHistory.filter((item) => !(item.date === '2026-08-14' && item.assetId === 'guangdong-fuel-95'))
   alteredHistory.push(...assetIds.map((assetId) => ({
-    assetId, value: 99, date: '2026-09-26', timestamp: '2026-09-25T16:00:00.000Z', collectedAt: '2026-09-25T09:00:00.000Z',
+    assetId, value: 99, date: '2026-09-25', timestamp: '2026-09-25T16:00:00.000Z', collectedAt: '2026-09-25T09:00:00.000Z',
   })))
   alteredHistory.push({ ...history.find((item) => item.assetId === 'guangdong-fuel-92'), value: 99 })
-  const series = fuelTrendPoints({ history: alteredHistory }, assetIds, FUEL_TREND_RANGES[2], '2026-09-25')
+  const series = fuelTrendPoints({ history: alteredHistory }, assetIds, FUEL_TREND_RANGES[2], '2026-09-24')
   assert.deepEqual(series.map((item) => item.points.length), [12, 12, 12])
-  assert.equal(series[0].points.some((item) => item.date === '2026-08-15'), false)
-  assert.equal(series[0].points.some((item) => item.date === '2026-09-26'), false)
+  assert.equal(series[0].points.some((item) => item.date === '2026-08-14'), false)
+  assert.equal(series[0].points.some((item) => item.date === '2026-09-25'), false)
 })

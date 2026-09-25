@@ -50,11 +50,12 @@ test('油价趋势保留当前366天历史内的完整已生效事件并排除up
   const trend = buildTrendHistory(history, now).filter((item) => item.assetId.startsWith('guangdong-fuel-'))
   const eventDates = [...new Set(trend.map((item) => item.date))]
   assert.equal(eventDates.length, 10)
-  assert.equal(eventDates[0], '2026-05-22')
-  assert.equal(eventDates.at(-1), '2026-09-25')
+  assert.equal(eventDates[0], '2026-05-21')
+  assert.equal(eventDates.at(-1), '2026-09-24')
+  assert.equal(trend.find((item) => item.assetId === 'guangdong-fuel-92' && item.date === '2026-09-24').timestamp, '2026-09-24T16:00:00.000Z')
   assert.equal(trend.length, 30)
   assert.ok(eventDates.every((date) => assetIds.every((assetId) => trend.some((item) => item.date === date && item.assetId === assetId))))
-  assert.equal(trend.some((item) => item.date === '2026-09-26'), false, '未来upcoming日期不进入历史趋势')
+  assert.equal(trend.some((item) => item.date === '2026-09-25'), false, '未来upcoming日期不进入历史趋势')
 })
 
 test('同一自然日趋势记录只保留采集时间最晚的一条', () => {
