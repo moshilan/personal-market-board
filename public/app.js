@@ -227,7 +227,7 @@ function chartSvg(series, { zeroLine = false } = {}) {
     points.forEach((point) => svg.append(svgNode('circle', { cx: x(point), cy: y(point.value), r: 3.5, class: 'trend-dot', fill: TREND_COLORS[assetId] })))
   })
   const pointsByDate = new Map()
-  series.forEach(({ label, points }) => points.forEach((point) => {
+  series.forEach(({ assetId, label, points }) => points.forEach((point) => {
     const items = pointsByDate.get(point.date) ?? []
     const unit = assetId.startsWith('guangdong-fuel-') ? '元/升' : '元/克'
     items.push(`${label}：${formatter.format(point.value)}${unit}`)
