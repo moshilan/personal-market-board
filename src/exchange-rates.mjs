@@ -1,5 +1,4 @@
 export const EXCHANGE_RATES_SOURCE_URL = 'https://api.exchangerate.fun/latest?base=USD&symbols=CNY,HKD,JPY,EUR,GBP,KRW,SGD'
-export const CURRENCY_EXCHANGE_TOOL_URL = 'https://www.currencyexchangetool.com/api/v1/convert'
 export const SUPPORTED_CURRENCIES = [
   { code: 'CNY', name: '人民币', displayUnit: 1 }, { code: 'USD', name: '美元', displayUnit: 1 },
   { code: 'HKD', name: '港币', displayUnit: 1 }, { code: 'JPY', name: '日元', displayUnit: 100 },
@@ -26,29 +25,6 @@ export function parseExchangeRateFun(payload, collectedAt, now = collectedAt) {
   return { available: true, base: 'USD', rates, sourceObservedAt: sourceObservedAt.toISOString(), collectedAt, sourceTimePrecision: 'second', sourceUrl: EXCHANGE_RATES_SOURCE_URL, sourceName: 'ExchangeRate.fun', reason: null }
 }
 
-export function parseCurrencyExchangeToolBatch(records, collectedAt, now = collectedAt) {
-  const parsed = records.map((record) => ({ code: record.to, rate: Number(record.rate), observedAt: new Date(record.updatedAt) }))
-  const requiredCodes = new Set([...CODES].filter((code) => code !== 'USD'))
-  if (parsed.length !== requiredCodes.size || new Set(parsed.map(({ code }) => code)).size !== parsed.length || parsed.some(({ code, rate, observedAt }) => !requiredCodes.has(code) || !Number.isFinite(rate) || rate <= 0 || Number.isNaN(observedAt.getTime()))) return unavailableExchangeRates(collectedAt, '备用汇率源返回字段不完整')
-  const nowTime = new Date(now).getTime()
-  if (parsed.some(({ observedAt }) => {
-    const age = nowTime - observedAt.getTime()
-    return chinaDate(observedAt) !== chinaDate(now) || age < -5 * 60 * 1_000 || age > 2 * 60 * 60 * 1_000
-  })) return unavailableExchangeRates(collectedAt, '备用汇率源存在过期或非北京时间当天数据', CURRENCY_EXCHANGE_TOOL_URL, 'Currency Exchange Tool')
-  const sourceObservedAt = new Date(Math.max(...parsed.map(({ observedAt }) => observedAt.getTime())))
-  return {
-    available: true,
-    base: 'USD',
-    rates: Object.fromEntries([['USD', 1], ...parsed.map(({ code, rate }) => [code, rate])]),
-    sourceObservedAt: sourceObservedAt.toISOString(),
-    sourceObservedAtByCurrency: Object.fromEntries(parsed.map(({ code, observedAt }) => [code, observedAt.toISOString()])),
-    collectedAt,
-    sourceTimePrecision: 'second',
-    sourceUrl: CURRENCY_EXCHANGE_TOOL_URL,
-    sourceName: 'Currency Exchange Tool',
-    reason: null,
-  }
-}
 export function convertExchangeRate(amount, from, to, exchangeRates) {
   if (typeof amount === 'string' && amount.trim() === '') return null
   const value = Number(amount)

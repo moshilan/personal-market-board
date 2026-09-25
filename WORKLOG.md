@@ -247,3 +247,9 @@
 - 首页增加一条生效提醒，油价详情列出92、95、0号柴油当前价、新价和涨跌；生效时刻由页面定时提升为current，移除upcoming展示。
 - 增加采集、仓储、视图和生效切换测试；完整Node测试46项通过，静态构建成功，360px与393px浏览器验收通过。
 - 修正页面验收中固定历史日期导致周范围测试随日历过期的问题，改用相对当前日期的样例。
+
+## 2026-09-25 11:59
+
+- 实测Currency Exchange Tool返回HTTP 402正文`Payment required / DEPLOYMENT_DISABLED`；ExchangeRate.fun批量端点返回HTTP 200，源时间`2026-09-25T03:00:00Z`，项目解析器接受当日完整8币种数据。Frankfurter和open.er-api也有响应，但数据为日级且不满足本项目2小时当前汇率有效性要求。
+- 汇率采集改用ExchangeRate.fun一次USD基准批量请求；上游失败记录在`latestAttempt.exchangeRates`，只有有效批次才能更新`latestExchangeRates`。展示层在失败时继续使用最近成功批次并标记缓存，同时保留本轮失败原因。
+- 新增汇率缓存保留测试和缓存状态浏览器断言；完整46项Node测试、静态构建、git diff检查及360px/393px页面验收通过。

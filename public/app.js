@@ -608,7 +608,7 @@ function renderExchange(view) {
   const rates = view.exchangeRates
   const fragment = document.createDocumentFragment()
   const converterSection = element('section', 'exchange-section')
-  converterSection.append(sectionHeading('货币换算器', rates?.available ? `数据时间：${dateTime(rates.sourceObservedAt)}` : ''))
+  converterSection.append(sectionHeading('货币换算器', rates?.available ? rates.displayStatus === 'cached' ? '使用最近一次有效缓存' : `数据时间：${dateTime(rates.sourceObservedAt)}` : ''))
   const form = element('div', 'exchange-converter')
   const amount = element('input', 'exchange-amount'); amount.type = 'number'; amount.inputMode = 'decimal'; amount.min = '0'; amount.step = 'any'; amount.placeholder = '输入金额'; amount.value = '1'; amount.setAttribute('aria-label', '金额')
   const from = element('select', 'exchange-select'); from.setAttribute('aria-label', '起始币种')
@@ -631,7 +631,7 @@ function renderExchange(view) {
     const value = rates.rates?.[code] ? rates.rates.CNY / rates.rates[code] * unit : null
     row.append(element('div', 'exchange-currency', `${code} ${name}`), element('strong', value === null ? 'unavailable-value' : '', value === null ? '暂无' : `${unit} ${code} = ${value.toLocaleString('zh-CN', { maximumFractionDigits: 6 })} 元`)); list.append(row)
   })
-  if (rates?.available) listSection.append(list, element('p', 'exchange-source', `来源：${rates.sourceName} · 更新时间：${dateTime(rates.sourceObservedAt)}`))
+  if (rates?.available) listSection.append(list, element('p', 'exchange-source', `来源：${rates.sourceName} · 数据时间：${dateTime(rates.sourceObservedAt)}`))
   fragment.append(converterSection, listSection); update(); return fragment
 }
 

@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { persistSnapshot } from '../src/market-data-store.mjs'
-import { CURRENCY_EXCHANGE_TOOL_URL, EXCHANGE_RATES_SOURCE_URL, parseCurrencyExchangeToolBatch, parseExchangeRateFun, unavailableExchangeRates } from '../src/exchange-rates.mjs'
+import { EXCHANGE_RATES_SOURCE_URL, parseExchangeRateFun, unavailableExchangeRates } from '../src/exchange-rates.mjs'
 import { deriveDomesticSilverCny, deriveInternationalSilverCny, deriveSilverSpread } from '../src/silver-calculations.mjs'
 import { findLatestValidSgeDailyQuotation, makeSgeFallbackRecord } from '../src/sge-daily-quotation.mjs'
 import { findGuangdongFuelAnnouncements, GUANGDONG_FUEL_INDEX_URL } from '../src/guangdong-fuel.mjs'
@@ -16,7 +16,6 @@ const SOURCES = {
   xauUsdBackup: 'https://api.goldprice.dev/v1/prices?symbol=XAU-USD-SPOT&include=sources',
   usdCny: 'https://www.currencyexchangetool.com/api/v1/convert?amount=1&from=USD&to=CNY',
   exchangeRates: EXCHANGE_RATES_SOURCE_URL,
-  exchangeRatesBackup: CURRENCY_EXCHANGE_TOOL_URL,
   au9999: 'https://www.sge.com.cn/h5_sjzx/yshq',
   agTd: 'https://www.sge.com.cn/h5_sjzx/yshq',
   sgeDaily: 'https://www.sge.com.cn/sjzx/quotation_daily_new',
@@ -183,11 +182,10 @@ async function collectUsdCny(collectedAt) {
 
 async function collectExchangeRates(collectedAt) {
   try {
-    const records = await Promise.all(['CNY', 'HKD', 'JPY', 'EUR', 'GBP', 'KRW', 'SGD'].map(async (to) => getJson(`${SOURCES.exchangeRatesBackup}?amount=1&from=USD&to=${to}`)))
-    const primary = parseCurrencyExchangeToolBatch(records, collectedAt.toISOString(), collectedAt)
-    return primary.available ? primary : unavailableExchangeRates(collectedAt.toISOString(), primary.reason, CURRENCY_EXCHANGE_TOOL_URL, 'Currency Exchange Tool')
+    const primary = parseExchangeRateFun(await getJson(SOURCES.exchangeRates), collectedAt.toISOString(), collectedAt)
+    return primary.available ? primary : unavailableExchangeRates(collectedAt.toISOString(), primary.reason, EXCHANGE_RATES_SOURCE_URL, 'ExchangeRate.fun')
   } catch (error) {
-    return unavailableExchangeRates(collectedAt.toISOString(), `Currency Exchange Tool请求失败：${error.message}`, CURRENCY_EXCHANGE_TOOL_URL, 'Currency Exchange Tool')
+    return unavailableExchangeRates(collectedAt.toISOString(), `ExchangeRate.fun请求失败：${error.message}`, EXCHANGE_RATES_SOURCE_URL, 'ExchangeRate.fun')
   }
 }
 

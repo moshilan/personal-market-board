@@ -221,7 +221,7 @@ try {
     assert.equal(await page.locator('.exchange-select').count(), 2)
     assert.equal(await page.getByRole('button', { name: '交换币种' }).count(), 1)
     assert.equal(await page.getByRole('button', { name: '交换币种' }).innerText(), '⇄')
-    assert.match(await page.locator('.exchange-source').innerText(), /^来源：(ExchangeRate\.fun|Currency Exchange Tool) · 更新时间：8月30日 \d{1,2}:\d{2}$/)
+    assert.match(await page.locator('.exchange-source').innerText(), /^来源：(ExchangeRate\.fun|Currency Exchange Tool)( · 缓存)? · 数据时间：\d+月\d+日 \d{1,2}:\d{2}$/)
     assert.equal(await page.locator('.exchange-row').count(), 7)
     assert.equal(await page.locator('.exchange-select').evaluateAll((items) => {
       const widths = items.map((item) => Math.round(item.getBoundingClientRect().width))
@@ -247,6 +247,20 @@ try {
     assert.equal(await page.getByText('汇率数据暂不可用，请稍后查看', { exact: true }).count(), 1)
     assert.equal(await page.getByText('当前汇率不可用', { exact: true }).count(), 0)
     assert.equal(await page.getByText('暂无可靠汇率', { exact: true }).count(), 0)
+    await page.unroute('**/api/home.json')
+    const cachedExchangeSnapshot = structuredClone(snapshot)
+    cachedExchangeSnapshot.views.exchange.exchangeRates = {
+      available: true, base: 'USD', rates: { CNY: 6.71, USD: 1, HKD: 7.84, JPY: 158, EUR: 0.88, GBP: 0.76, KRW: 1360, SGD: 1.28 },
+      sourceObservedAt: '2026-08-24T08:00:00.000Z', collectedAt: '2026-08-24T08:00:00.000Z', sourceName: 'ExchangeRate.fun',
+      displayStatus: 'cached', liveStatus: 'unavailable', liveReason: '上游请求失败',
+    }
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(cachedExchangeSnapshot) }))
+    await page.getByRole('button', { name: '刷新显示' }).click()
+    await page.getByRole('button', { name: '汇率' }).click()
+    assert.equal(await page.getByText('使用最近一次有效缓存', { exact: true }).count(), 1)
+    assert.match(await page.locator('.exchange-source').innerText(), /ExchangeRate\.fun · 数据时间：/)
+    assert.equal(await page.locator('.exchange-row').count(), 7)
+    assert.equal(await page.getByText('汇率数据暂不可用，请稍后查看', { exact: true }).count(), 0)
     await page.unroute('**/api/home.json')
     const upcomingSnapshot = structuredClone(snapshot)
     const fuelTestTimestamp = new Date().toISOString()

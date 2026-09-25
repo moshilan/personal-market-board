@@ -72,6 +72,24 @@ test('实时失败时展示层返回缓存，且不改写实时失败状态', as
   assert.equal(displayed.liveStatus, 'unavailable')
 })
 
+test('汇率采集失败保留最近成功批次并展示缓存状态，同时保存失败诊断', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
+  const storePath = join(directory, 'market-data.json')
+  const successfulRates = {
+    available: true, base: 'USD', rates: { CNY: 6.71, USD: 1, HKD: 7.84, JPY: 158, EUR: 0.88, GBP: 0.76, KRW: 1360, SGD: 1.28 },
+    sourceObservedAt: '2026-08-24T08:00:00.000Z', collectedAt: '2026-08-24T08:00:00.000Z', sourceName: 'ExchangeRate.fun', reason: null,
+  }
+  await persistSnapshot({ ...snapshot('2026-08-24T08:00:00.000Z'), exchangeRates: successfulRates }, storePath)
+  const failedRates = { available: false, base: 'USD', rates: {}, sourceObservedAt: null, collectedAt: '2026-08-24T09:00:00.000Z', sourceName: 'ExchangeRate.fun', reason: 'HTTP 403' }
+  const result = await persistSnapshot({ ...snapshot('2026-08-24T09:00:00.000Z'), exchangeRates: failedRates }, storePath)
+  assert.deepEqual(result.store.latestAttempt.exchangeRates, failedRates)
+  assert.deepEqual(result.store.latestExchangeRates, successfulRates)
+  assert.equal(result.displaySnapshot.exchangeRates.available, true)
+  assert.equal(result.displaySnapshot.exchangeRates.displayStatus, 'cached')
+  assert.equal(result.displaySnapshot.exchangeRates.liveStatus, 'unavailable')
+  assert.equal(result.displaySnapshot.exchangeRates.liveReason, 'HTTP 403')
+})
+
 test('历史按30分钟、品牌日期和油价生效时间去重', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
   const storePath = join(directory, 'market-data.json')

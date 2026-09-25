@@ -216,10 +216,17 @@ export function buildDisplaySnapshot(liveSnapshot, store) {
       liveReason: liveObservation.reason,
     }
   })
+  const liveExchangeRates = liveSnapshot.exchangeRates
+  const cachedExchangeRates = store.latestExchangeRates
+  const exchangeRates = liveExchangeRates?.available
+    ? { ...liveExchangeRates, displayStatus: 'current' }
+    : cachedExchangeRates?.available
+      ? { ...cachedExchangeRates, displayStatus: 'cached', liveStatus: 'unavailable', liveReason: liveExchangeRates?.reason ?? '本轮汇率采集失败' }
+      : liveExchangeRates ?? cachedExchangeRates ?? null
   return {
     collectedAt: liveSnapshot.collectedAt,
     observations,
-    exchangeRates: liveSnapshot.exchangeRates ?? store.latestExchangeRates ?? null,
+    exchangeRates,
     upcomingFuel: liveSnapshot.upcomingFuel ?? null,
   }
 }
@@ -228,7 +235,7 @@ export async function persistSnapshot(rawSnapshot, storePath) {
   const liveSnapshot = normalizeSnapshot(rawSnapshot)
   const store = await readStore(storePath)
   store.latestAttempt = liveSnapshot
-  store.latestExchangeRates = liveSnapshot.exchangeRates ?? store.latestExchangeRates ?? null
+  if (liveSnapshot.exchangeRates?.available) store.latestExchangeRates = liveSnapshot.exchangeRates
   for (const observation of liveSnapshot.observations) {
     if (!observation.available || observation.displayOnly) continue
     store.latestSuccessfulByAsset[observation.assetId] = observation
