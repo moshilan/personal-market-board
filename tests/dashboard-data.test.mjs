@@ -32,11 +32,10 @@ test('日级趋势只包含近一年资产、排除北京时间当天且保留�
   assert.deepEqual(Object.keys(trend.find((item) => item.assetId === 'guangdong-fuel-92')).sort(), ['assetId', 'collectedAt', 'date', 'observedAt', 'percentage', 'timestamp', 'value'])
 })
 
-test('油价趋势不受30天窗口限制，只输出最近十次三油品日期一致的已生效事件', () => {
+test('油价趋势保留当前366天历史内的完整已生效事件并排除upcoming', () => {
   const now = Date.parse('2026-09-25T08:00:00.000Z')
   const dates = [
-    '2026-01-20', '2026-02-03', '2026-02-24', '2026-03-09', '2026-03-23', '2026-04-07',
-    '2026-04-21', '2026-05-08', '2026-05-21', '2026-06-04', '2026-06-18', '2026-07-03',
+    '2026-05-21', '2026-06-04', '2026-06-18', '2026-07-03',
     '2026-07-17', '2026-07-31', '2026-08-14', '2026-08-28', '2026-09-11', '2026-09-24',
   ]
   const assetIds = ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel']
@@ -47,7 +46,6 @@ test('油价趋势不受30天窗口限制，只输出最近十次三油品日期
     { metadata: { effectiveFrom: `${date}T16:00:00.000Z` } },
   )))
   history.push(observation('guangdong-fuel-92', 8.7, '2026-09-25T16:00:00.000Z', { metadata: { effectiveFrom: '2026-09-25T16:00:00.000Z' } }))
-  history.push(observation('guangdong-fuel-92', 8.2, '2026-04-21T16:00:00.000Z', { metadata: { effectiveFrom: '2026-04-21T16:00:00.000Z' } }))
 
   const trend = buildTrendHistory(history, now).filter((item) => item.assetId.startsWith('guangdong-fuel-'))
   const eventDates = [...new Set(trend.map((item) => item.date))]

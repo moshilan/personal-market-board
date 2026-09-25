@@ -22,7 +22,6 @@ const BRAND_TREND_ASSETS = new Set([
   'brand-gold-lao-feng-xiang',
 ])
 const YEAR_DAYS_MS = 366 * 24 * 60 * 60 * 1_000
-const FUEL_EVENT_COUNT = 10
 
 function trendTime(observation) {
   return observation.metadata?.effectiveFrom ?? observation.collectedAt ?? observation.observedAt
@@ -86,13 +85,11 @@ function buildFuelTrendHistory(history, now) {
     eventsByDate.set(date, event)
   }
 
-  const eventDates = [...eventsByDate]
+  const completeEvents = [...eventsByDate]
     .filter(([, event]) => [...FUEL_TREND_ASSETS].every((assetId) => event.has(assetId)))
-    .map(([date]) => date)
-    .sort((left, right) => left.localeCompare(right))
-    .slice(-FUEL_EVENT_COUNT)
+    .sort(([left], [right]) => left.localeCompare(right))
 
-  return eventDates.flatMap((date) => [...eventsByDate.get(date).values()].map((item) => ({
+  return completeEvents.flatMap(([date, event]) => [...event.values()].map((item) => ({
     assetId: item.assetId,
     value: item.value,
     percentage: item.percentage ?? null,

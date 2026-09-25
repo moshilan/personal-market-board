@@ -153,6 +153,7 @@ export function createEmptyStore() {
     history: [],
     latestExchangeRates: null,
     trendDecisions: {},
+    guangdongFuelBackfillCompleted: false,
   }
 }
 
@@ -240,6 +241,7 @@ function chinaDate(timestamp) {
 }
 
 function backfillGuangdongFuelHistory(store, collectedAt) {
+  if (store.guangdongFuelBackfillCompleted) return
   for (const event of [...GUANGDONG_FUEL_HISTORY_BACKFILL].reverse()) {
     if (Date.parse(event.effectiveFrom) > Date.parse(collectedAt)) continue
     const snapshot = normalizeSnapshot({
@@ -262,6 +264,7 @@ function backfillGuangdongFuelHistory(store, collectedAt) {
       if (shouldAppendHistory(store.history, observation)) store.history.push(observation)
     }
   }
+  store.guangdongFuelBackfillCompleted = true
 }
 
 export async function persistSnapshot(rawSnapshot, storePath) {

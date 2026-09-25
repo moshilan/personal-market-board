@@ -130,6 +130,7 @@ section { margin-top: 31px; }
 .trend-card-heading h3 { font-size: 16px; }
 .trend-card-heading p { margin-top: 4px; color: #61736d; font-size: 11px; }
 .trend-range { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); flex: 1 0 100%; gap: 3px; padding: 3px; border-radius: 10px; background: #e8ece5; }
+.fuel-trend-range { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 12px; }
 .trend-range button { min-height: 28px; min-width: 0; padding: 0 3px; color: #61736d; border: 0; border-radius: 7px; background: transparent; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .trend-range button[aria-pressed="true"] { color: #fffdf7; background: #205c50; }
 .trend-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 13px; color: #53645e; font-size: 11px; font-weight: 700; }

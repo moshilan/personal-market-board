@@ -105,7 +105,7 @@ test('历史按30分钟、品牌日期和油价生效时间去重', async () => 
   assert.equal(buildDisplaySnapshot(first.liveSnapshot, second.store).observations[0].displayStatus, 'current')
 })
 
-test('广东官方公告历史补齐最近十次且按生效日去重', async () => {
+test('广东官方公告仅回溯最近十次且按生效日去重', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
   const storePath = join(directory, 'market-data.json')
   const first = await persistSnapshot(snapshot('2026-09-25T08:50:14.000Z'), storePath)
@@ -135,6 +135,16 @@ test('历史保留最近366天，当前成功缓存不受影响', async () => {
   const result = await persistSnapshot(snapshot('2026-08-24T08:00:00.000Z'), storePath)
   assert.equal(getHistory(result.store, 'xau-usd').length, 1)
   assert.equal(result.store.latestSuccessfulByAsset['xau-usd'].observedAt, '2026-08-24T08:00:00.000Z')
+})
+
+test('广东油价回溯只执行一次，过期历史不会被静态种子重新写回', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
+  const storePath = join(directory, 'market-data.json')
+  const initial = await persistSnapshot(snapshot('2026-09-25T08:50:14.000Z'), storePath)
+  assert.equal(initial.store.guangdongFuelBackfillCompleted, true)
+  const later = await persistSnapshot({ ...snapshot('2027-10-01T08:50:14.000Z'), guangdongFuel: [] }, storePath)
+  assert.equal(getHistory(later.store, 'guangdong-fuel-92').some((item) => item.metadata.effectiveFrom === '2026-09-24T16:00:00.000Z'), false)
+  assert.equal(later.store.guangdongFuelBackfillCompleted, true)
 })
 
 test('upcoming油价随最近采集快照持久化但不写入current观察或history', async () => {

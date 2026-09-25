@@ -1,5 +1,3 @@
-const collectedAt = '2026-09-25T08:55:46.458Z'
-
 const officialNotice = (postId) => `https://drc.gd.gov.cn/spjg/content/post_${postId}.html`
 
 export const GUANGDONG_FUEL_HISTORY_BACKFILL = [
@@ -13,4 +11,4 @@ export const GUANGDONG_FUEL_HISTORY_BACKFILL = [
   { effectiveFrom: '2026-06-18T16:00:00.000Z', sourceUrl: officialNotice('4913645'), prices: { '92号汽油': 7.96, '95号汽油': 8.62, '0号柴油': 7.62 } },
   { effectiveFrom: '2026-06-04T16:00:00.000Z', sourceUrl: officialNotice('4906704'), prices: { '92号汽油': 8.37, '95号汽油': 9.07, '0号柴油': 8.04 } },
   { effectiveFrom: '2026-05-21T16:00:00.000Z', sourceUrl: officialNotice('4899816'), prices: { '92号汽油': 8.79, '95号汽油': 9.53, '0号柴油': 8.47 } },
-].map((event) => ({ ...event, collectedAt }))
+]

@@ -1,5 +1,6 @@
 import { collectionStatusForChina } from './collection-status.mjs'
 import { SUPPORTED_CURRENCIES, convertExchangeRate } from './exchange-rates.js'
+import { FUEL_TREND_RANGES, fuelTrendPoints } from './fuel-trend.js'
 import { resolveUpcomingFuelView } from './fuel-upcoming.js'
 
 const app = document.querySelector('#app')
@@ -17,6 +18,7 @@ let activeView = 'home'
 let latestData = null
 let readingNoteTimer = null
 let upcomingFuelTimer = null
+let fuelTrendRangeId = 'recent10'
 const TREND_RANGES = [
   { id: 'week', label: '1周', days: 7 },
   { id: 'month', label: '1月', months: 1 },
@@ -279,6 +281,18 @@ function accumulationNote(series, range = activeTrendRange()) {
   return element('p', 'trend-note', `${range.label}范围内，共${points.length}条真实记录`)
 }
 
+function fuelTrendRangeButtons() {
+  const controls = element('div', 'trend-range fuel-trend-range')
+  FUEL_TREND_RANGES.forEach((range) => {
+    const button = element('button', '', range.label)
+    button.type = 'button'
+    button.setAttribute('aria-pressed', String(fuelTrendRangeId === range.id))
+    button.addEventListener('click', () => { fuelTrendRangeId = range.id; render(latestData) })
+    controls.append(button)
+  })
+  return controls
+}
+
 function goldTrendNote(series, range = activeTrendRange()) {
   const counts = series.map((item) => `${item.label}${item.points.length}条`)
   if (series.every((item) => item.points.length >= 2)) return accumulationNote(series, range)
@@ -311,13 +325,6 @@ function fuelMovement(item) {
   const delta = item.points.at(-1).value - item.points.at(-2).value
   if (delta === 0) return '最近一次未调价'
   return `最近一次${delta > 0 ? '上涨' : '下降'}${formatter.format(Math.abs(delta))}元/升`
-}
-
-function fuelTrendPoints(data, assetIds, maxRecords = 10) {
-  const records = (data.history ?? []).filter((item) => assetIds.includes(item.assetId))
-  const timestamps = [...new Set(records.map((item) => item.timestamp))].sort((left, right) => Date.parse(left) - Date.parse(right)).slice(-maxRecords)
-  const includedTimestamps = new Set(timestamps)
-  return assetIds.map((assetId) => ({ assetId, points: records.filter((item) => item.assetId === assetId && includedTimestamps.has(item.timestamp)) }))
 }
 
 const QUOTE_COPY = {
@@ -602,8 +609,9 @@ function renderFuel(view) {
   const upcomingPanel = upcomingFuelPanel(view)
   if (upcomingPanel) fuelSection.append(upcomingPanel)
   const trendSection = element('section', 'trend-section')
-  trendSection.append(sectionHeading('油价调整记录', '最近10次调价'))
-  const fuelSeries = fuelTrendPoints(latestData, ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel'])
+  const fuelRange = FUEL_TREND_RANGES.find((range) => range.id === fuelTrendRangeId) ?? FUEL_TREND_RANGES[0]
+  trendSection.append(sectionHeading('油价调整记录', '广东官方实际调价事件'), fuelTrendRangeButtons())
+  const fuelSeries = fuelTrendPoints(latestData, ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel'], fuelRange)
   fuelSeries[0].label = '92号汽油'
   fuelSeries[1].label = '95号汽油'
   fuelSeries[2].label = '0号柴油'
@@ -611,7 +619,10 @@ function renderFuel(view) {
   if (fuelRecordCount < 2) {
     trendSection.append(element('p', 'trend-note', fuelRecordCount === 1 ? '当前仅有1次调价记录，历史数据积累中' : '历史数据积累中，尚无真实调价记录'))
   } else {
-    trendSection.append(trendCard({ title: '广东油价调价趋势', note: '元/升，每个点为一次实际调价，展示最近10次', series: fuelSeries, step: true }))
+    trendSection.append(trendCard({
+      title: '广东油价调价趋势', note: '元/升，每个点为一次实际调价', series: fuelSeries, step: true,
+      statusNote: () => element('p', 'trend-note', `${fuelRange.label}范围内，共${fuelRecordCount}次实际调价事件`),
+    }))
     const movements = element('div', 'fuel-movements')
     fuelSeries.forEach((item) => movements.append(element('p', '', `${item.label}：${fuelMovement(item)}`)))
     trendSection.append(movements)
