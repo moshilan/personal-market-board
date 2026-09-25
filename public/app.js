@@ -20,6 +20,7 @@ let latestData = null
 let readingNoteTimer = null
 let upcomingFuelTimer = null
 let fuelTrendRangeId = 'recent10'
+const selectedTrendDates = new Map()
 const TREND_RANGES = [
   { id: 'week', label: '7个有效日' },
   { id: 'month', label: '1月', months: 1 },
@@ -186,7 +187,23 @@ function scaleDomain(series) {
   return { minValue: minValue - padding, maxValue: maxValue + padding, minTime: Math.min(...times), maxTime: Math.max(...times) }
 }
 
-function chartSvg(series, { zeroLine = false } = {}) {
+function trendPointDate(point) {
+  return point.date ?? chinaDate(point.timestamp)
+}
+
+function trendSelectionRows(series, date) {
+  const rows = new Map()
+  series.forEach(({ assetId, label, points }) => {
+    const point = points.find((item) => trendPointDate(item) === date)
+    if (!point) return
+    const row = rows.get(point.value) ?? { value: point.value, labels: [] }
+    row.labels.push(label ?? assetId)
+    rows.set(point.value, row)
+  })
+  return [...rows.values()].sort((left, right) => right.value - left.value)
+}
+
+function chartSvg(series, { zeroLine = false, selectionPanel } = {}) {
   const domain = scaleDomain(series)
   if (!domain) return null
   const width = 320
@@ -202,9 +219,11 @@ function chartSvg(series, { zeroLine = false } = {}) {
   const timeRange = domain.maxTime - domain.minTime || 1
   const x = (point) => hasTimeRange ? left + (Date.parse(point.timestamp) - domain.minTime) / timeRange * plotWidth : left + plotWidth / 2
   const y = (value) => top + (domain.maxValue - value) / valueRange * plotHeight
-  const svg = svgNode('svg', { class: 'trend-svg', viewBox: `0 0 ${width} ${height}`, role: 'img', 'aria-label': '历史趋势图' })
+  const svg = svgNode('svg', { class: 'trend-svg', viewBox: `0 0 ${width} ${height}`, role: 'group', 'aria-label': '历史趋势图，点击或触摸查看数值' })
   ;[0, .5, 1].forEach((ratio) => svg.append(svgNode('line', { x1: left, y1: top + plotHeight * ratio, x2: width - right, y2: top + plotHeight * ratio, class: 'trend-grid-line' })))
   if (zeroLine && domain.minValue <= 0 && domain.maxValue >= 0) svg.append(svgNode('line', { x1: left, y1: y(0), x2: width - right, y2: y(0), class: 'trend-zero-line' }))
+  const selectedGuide = svgNode('line', { y1: top, y2: top + plotHeight, class: 'trend-selected-guide', visibility: 'hidden', 'pointer-events': 'none' })
+  svg.append(selectedGuide)
   ;[domain.maxValue, (domain.maxValue + domain.minValue) / 2, domain.minValue].forEach((value) => {
     const label = svgNode('text', { x: left - 7, y: y(value) + 3, class: 'trend-axis-label', 'text-anchor': 'end' })
     label.textContent = formatter.format(value)
@@ -230,20 +249,56 @@ function chartSvg(series, { zeroLine = false } = {}) {
     points.forEach((point) => svg.append(svgNode('circle', { cx: x(point), cy: y(point.value), r: 3.5, class: 'trend-dot', fill: TREND_COLORS[assetId] })))
   })
   const pointsByDate = new Map()
-  series.forEach(({ assetId, label, points }) => points.forEach((point) => {
-    const items = pointsByDate.get(point.date) ?? []
-    const unit = assetId.startsWith('guangdong-fuel-') ? '元/升' : '元/克'
-    items.push(`${label}：${formatter.format(point.value)}${unit}`)
-    pointsByDate.set(point.date, items)
+  series.forEach(({ points }) => points.forEach((point) => {
+    const date = trendPointDate(point)
+    const entry = pointsByDate.get(date) ?? { points: [], xPositions: [] }
+    entry.points.push(point)
+    entry.xPositions.push(x(point))
+    pointsByDate.set(date, entry)
   }))
-  pointsByDate.forEach((items, date) => {
-    const point = series.flatMap((item) => item.points).find((item) => item.date === date)
-    const hitArea = svgNode('line', { x1: x(point), x2: x(point), y1: top, y2: top + plotHeight, class: 'trend-date-hit', 'pointer-events': 'stroke' })
+  const datePositions = new Map([...pointsByDate].map(([date, entry]) => [date, entry.xPositions.reduce((sum, value) => sum + value, 0) / entry.xPositions.length]))
+  const unit = series.some(({ assetId }) => assetId.startsWith('guangdong-fuel-')) ? '元/升' : '元/克'
+  const selectionKey = series.map(({ assetId }) => assetId).join('|')
+  const renderSelection = (date) => {
+    const entry = pointsByDate.get(date)
+    if (!entry) return
+    selectedTrendDates.set(selectionKey, date)
+    const selectedX = datePositions.get(date)
+    selectedGuide.setAttribute('x1', selectedX)
+    selectedGuide.setAttribute('x2', selectedX)
+    selectedGuide.setAttribute('visibility', 'visible')
+    if (!selectionPanel) return
+    const dateLabel = element('p', 'trend-selection-date', dateShort(entry.points[0].timestamp))
+    const values = element('div', 'trend-selection-values')
+    trendSelectionRows(series, date).forEach((row) => {
+      values.append(element('p', '', `${row.labels.join(' / ')}　${formatter.format(row.value)} ${unit}`))
+    })
+    selectionPanel.replaceChildren(dateLabel, values)
+    selectionPanel.hidden = false
+  }
+  pointsByDate.forEach((entry, date) => {
+    const selectedX = datePositions.get(date)
+    const hitArea = svgNode('line', { x1: selectedX, x2: selectedX, y1: top, y2: top + plotHeight, class: 'trend-date-hit', 'pointer-events': 'stroke' })
     const title = svgNode('title')
-    title.textContent = `${dateShort(point.timestamp)}\n${items.join('\n')}`
+    const rows = trendSelectionRows(series, date)
+    title.textContent = `${dateShort(entry.points[0].timestamp)}\n${rows.map((row) => `${row.labels.join(' / ')}：${formatter.format(row.value)} ${unit}`).join('\n')}`
     hitArea.append(title)
     svg.append(hitArea)
   })
+  svg.addEventListener('click', (event) => {
+    const bounds = svg.getBoundingClientRect()
+    if (!bounds.width) return
+    const viewX = (event.clientX - bounds.left) / bounds.width * width
+    const nearestDate = [...datePositions]
+      .sort((left, right) => Math.abs(left[1] - viewX) - Math.abs(right[1] - viewX))[0]?.[0]
+    if (nearestDate) renderSelection(nearestDate)
+  })
+  const previousSelection = selectedTrendDates.get(selectionKey)
+  if (previousSelection && pointsByDate.has(previousSelection)) renderSelection(previousSelection)
+  else {
+    selectedTrendDates.delete(selectionKey)
+    selectedGuide.setAttribute('visibility', 'hidden')
+  }
   return svg
 }
 
@@ -314,8 +369,12 @@ function trendCard({ title, note, series, zeroLine = false, showRange = false, s
   heading.append(titleNode)
   if (showRange) heading.append(trendRangeButtons())
   card.append(heading, trendLegend(series))
-  const svg = chartSvg(series, { zeroLine })
-  if (svg) card.append(svg)
+  const selectionPanel = element('div', 'trend-selection')
+  selectionPanel.hidden = true
+  const svg = chartSvg(series, { zeroLine, selectionPanel })
+  if (svg) {
+    card.append(svg, selectionPanel)
+  }
   card.append(statusNote ? statusNote() : accumulationNote(series))
   return card
 }

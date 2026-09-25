@@ -33,7 +33,7 @@ async function assertBottomNavigation(page) {
 
 try {
   for (const width of [360, 393]) {
-    const page = await browser.newPage({ viewport: { width, height: 844 }, deviceScaleFactor: 1 })
+    const page = await browser.newPage({ viewport: { width, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     const consoleErrors = []
     const thirdPartyRequests = []
     page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()) })
@@ -204,6 +204,7 @@ try {
       ...trendRanges.flatMap((timestamp, index) => [
         { assetId: 'international-gold-cny-gram', value: 950 + index * 10, date: timestamp.slice(0, 10), timestamp, observedAt: timestamp, collectedAt: timestamp },
         { assetId: 'au9999', value: 980 + index * 10, date: timestamp.slice(0, 10), timestamp, observedAt: timestamp, collectedAt: timestamp },
+        { assetId: 'domestic-international-gold-spread', value: 30, date: timestamp.slice(0, 10), timestamp, observedAt: timestamp, collectedAt: timestamp },
       ]),
     ]
     rangeSnapshot.brandHistory = ['brand-gold-chow-sang-sang', 'brand-gold-chow-tai-fook', 'brand-gold-luk-fook', 'brand-gold-lao-feng-xiang'].flatMap((assetId) => trendRanges.map((timestamp) => ({
@@ -215,8 +216,24 @@ try {
     assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-dot').count(), 4)
     await page.locator('.trend-card').nth(0).getByRole('button', { name: '1月', exact: true }).click()
     assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-dot').count(), 4)
+    const pairedTrend = page.locator('.trend-card').nth(0).locator('.trend-svg')
+    assert.equal(await pairedTrend.evaluate((svg) => getComputedStyle(svg).touchAction), 'pan-y', '图表触摸需保留页面纵向滚动')
+    await pairedTrend.tap({ position: { x: 0.2 * 320, y: 85 } })
+    const pairedSelection = page.locator('.trend-card').nth(0).locator('.trend-selection')
+    await pairedSelection.waitFor({ state: 'visible' })
+    assert.match(await pairedSelection.locator('.trend-selection-date').innerText(), /^\d+\/\d+$/)
+    assert.deepEqual(await pairedSelection.locator('.trend-selection-values p').allTextContents(), ['国内黄金　980.00 元/克', '国际黄金折算　950.00 元/克'])
+    await pairedTrend.tap({ position: { x: 0.9 * 320, y: 85 } })
+    assert.deepEqual(await pairedSelection.locator('.trend-selection-values p').allTextContents(), ['国内黄金　990.00 元/克', '国际黄金折算　960.00 元/克'])
+    assert.equal(await pairedTrend.locator('.trend-selected-guide[visibility="visible"]').count(), 1, '选中日期显示弱化竖线')
+    const brandTrend = page.locator('.brand-trend-section .trend-svg')
+    await brandTrend.tap({ position: { x: 0.2 * 320, y: 85 } })
+    const brandSelection = page.locator('.brand-trend-section .trend-selection')
+    assert.deepEqual(await brandSelection.locator('.trend-selection-values p').allTextContents(), ['周生生 / 周大福 / 六福 / 老凤祥　1,392.00 元/克'])
+    await page.locator('.trend-card').nth(1).locator('.trend-svg').tap({ position: { x: 0.2 * 320, y: 85 } })
+    assert.equal(await page.locator('.trend-card').nth(1).locator('.trend-selection-values p').count(), 1, '单线价差图只显示一个数值行')
     const brandTooltip = await page.locator('.brand-trend-section .trend-svg title').allTextContents()
-    assert.equal(brandTooltip.some((text) => ['周生生', '周大福', '六福', '老凤祥'].every((brand) => text.includes(brand)) && text.includes('1,392.00元/克')), true)
+    assert.equal(brandTooltip.some((text) => ['周生生', '周大福', '六福', '老凤祥'].every((brand) => text.includes(brand)) && text.includes('1,392.00 元/克')), true)
     await page.unroute('**/api/home.json')
     await page.getByRole('button', { name: '刷新显示' }).click()
     assert.equal(await page.getByText('当前有效', { exact: true }).count(), 0)
@@ -262,6 +279,8 @@ try {
     assert.equal(await page.getByText('USD/CNY', { exact: true }).count(), 0)
     await assert.doesNotReject(() => page.getByText('美元/盎司', { exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByRole('heading', { name: '白银趋势', exact: true }).waitFor())
+    await page.locator('.trend-card').nth(0).locator('.trend-svg').tap({ position: { x: 0.5 * 320, y: 85 } })
+    assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-selection-values p').count() > 0, true, '白银趋势图应支持触摸查看数值')
     assert.equal(await page.locator('.trend-card .trend-range').count(), 2)
     for (const label of ['7个有效日', '1月', '3月', '6月', '1年']) {
       assert.equal(await page.locator('.trend-card').nth(0).getByRole('button', { name: label, exact: true }).count(), 1)
@@ -413,6 +432,27 @@ try {
     await assert.doesNotReject(() => fuelTrendCard.waitFor())
     assert.deepEqual(await fuelTrendControls.locator('button').allTextContents(), ['近10次', '半年', '1年'])
     assert.equal(await fuelTrendCard.locator('.trend-dot').count(), 6)
+    const fuelTrendSvg = fuelTrendCard.locator('.trend-svg')
+    await fuelTrendSvg.tap({ position: { x: 0.2 * 320, y: 85 } })
+    const fuelSelectedRows = await fuelTrendCard.locator('.trend-selection-values p').allTextContents()
+    assert.deepEqual(fuelSelectedRows.map((row) => row.split('　')[0]), ['95号汽油', '92号汽油', '0号柴油'])
+    assert.equal(fuelSelectedRows.every((row) => /\d+\.\d{2} 元\/升$/.test(row)), true)
+    await fuelTrendSvg.scrollIntoViewIfNeeded()
+    const touchScroll = await page.evaluate(async () => {
+      const scroller = document.querySelector('.page-shell')
+      const svg = document.querySelector('.trend-card .trend-svg')
+      const rect = svg.getBoundingClientRect()
+      const startTop = scroller.scrollTop
+      const x = Math.round(rect.left + rect.width / 2)
+      const y = Math.round(rect.top + rect.height / 2)
+      return { startTop, x, y }
+    })
+    const touchClient = await page.context().newCDPSession(page)
+    await touchClient.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: touchScroll.x, y: touchScroll.y }] })
+    await touchClient.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchScroll.x, y: touchScroll.y - 90 }] })
+    await touchClient.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await touchClient.detach()
+    assert.equal(await page.locator('.page-shell').evaluate((scroller, startTop) => scroller.scrollTop > startTop, touchScroll.startTop), true, '沿图表纵向滑动仍应滚动页面')
     assert.equal(await fuelTrendCard.locator('.trend-line').evaluateAll((lines) => lines.length === 3 && lines.every((line) => /\bL\b/.test(line.getAttribute('d')) && !/\b[HV]\b/.test(line.getAttribute('d')))), true, '调价记录应由直线段直接连接')
     await page.unroute('**/api/home.json')
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(snapshot) }))

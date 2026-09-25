@@ -135,7 +135,13 @@ section { margin-top: 31px; }
 .trend-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 13px; color: #53645e; font-size: 11px; font-weight: 700; }
 .trend-legend-item { display: inline-flex; align-items: center; gap: 5px; }
 .trend-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-.trend-svg { display: block; width: 100%; height: auto; margin-top: 8px; overflow: visible; }
+.trend-svg { display: block; width: 100%; height: auto; margin-top: 8px; overflow: visible; touch-action: pan-y; cursor: crosshair; }
+.trend-selected-guide { stroke: #8b9891; stroke-width: 1; stroke-dasharray: 3 3; opacity: .65; }
+.trend-selection { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 10px; margin-top: 2px; padding: 8px 10px; border-radius: 10px; background: #f4f5ef; color: #61736d; font-size: 11px; }
+.trend-selection[hidden] { display: none; }
+.trend-selection-date { color: #52635d; white-space: nowrap; }
+.trend-selection-values { display: grid; gap: 3px; min-width: 0; text-align: right; }
+.trend-selection-values p { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .trend-grid-line { stroke: #e6e4da; stroke-width: 1; }
 .trend-zero-line { stroke: #c4a782; stroke-width: 1; stroke-dasharray: 3 3; }
 .trend-axis-label { fill: #7b8780; font-size: 9px; font-family: ui-rounded, "PingFang SC", "Microsoft YaHei", sans-serif; }
