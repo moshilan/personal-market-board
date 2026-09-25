@@ -200,7 +200,7 @@ function trendSelectionRows(series, date) {
     row.labels.push(label ?? assetId)
     rows.set(point.value, row)
   })
-  return [...rows.values()].sort((left, right) => right.value - left.value)
+  return [...rows.values()]
 }
 
 function chartSvg(series, { zeroLine = false, selectionPanel } = {}) {
@@ -219,7 +219,7 @@ function chartSvg(series, { zeroLine = false, selectionPanel } = {}) {
   const timeRange = domain.maxTime - domain.minTime || 1
   const x = (point) => hasTimeRange ? left + (Date.parse(point.timestamp) - domain.minTime) / timeRange * plotWidth : left + plotWidth / 2
   const y = (value) => top + (domain.maxValue - value) / valueRange * plotHeight
-  const svg = svgNode('svg', { class: 'trend-svg', viewBox: `0 0 ${width} ${height}`, role: 'group', 'aria-label': '历史趋势图，点击或触摸查看数值' })
+  const svg = svgNode('svg', { class: 'trend-svg', viewBox: `0 0 ${width} ${height}`, role: 'group', 'aria-label': '历史趋势图，点击或触摸查看数值', tabindex: '0' })
   ;[0, .5, 1].forEach((ratio) => svg.append(svgNode('line', { x1: left, y1: top + plotHeight * ratio, x2: width - right, y2: top + plotHeight * ratio, class: 'trend-grid-line' })))
   if (zeroLine && domain.minValue <= 0 && domain.maxValue >= 0) svg.append(svgNode('line', { x1: left, y1: y(0), x2: width - right, y2: y(0), class: 'trend-zero-line' }))
   const selectedGuide = svgNode('line', { y1: top, y2: top + plotHeight, class: 'trend-selected-guide', visibility: 'hidden', 'pointer-events': 'none' })
@@ -275,6 +275,14 @@ function chartSvg(series, { zeroLine = false, selectionPanel } = {}) {
     })
     selectionPanel.replaceChildren(dateLabel, values)
     selectionPanel.hidden = false
+    selectionPanel.tabIndex = 0
+  }
+  const clearSelection = () => {
+    selectedTrendDates.delete(selectionKey)
+    selectedGuide.setAttribute('visibility', 'hidden')
+    selectionPanel.hidden = true
+    selectionPanel.tabIndex = -1
+    svg.focus()
   }
   pointsByDate.forEach((entry, date) => {
     const selectedX = datePositions.get(date)
@@ -292,6 +300,15 @@ function chartSvg(series, { zeroLine = false, selectionPanel } = {}) {
     const nearestDate = [...datePositions]
       .sort((left, right) => Math.abs(left[1] - viewX) - Math.abs(right[1] - viewX))[0]?.[0]
     if (nearestDate) renderSelection(nearestDate)
+  })
+  selectionPanel.setAttribute('role', 'button')
+  selectionPanel.setAttribute('aria-label', '关闭选中日期')
+  selectionPanel.tabIndex = -1
+  selectionPanel.addEventListener('click', clearSelection)
+  selectionPanel.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    clearSelection()
   })
   const previousSelection = selectedTrendDates.get(selectionKey)
   if (previousSelection && pointsByDate.has(previousSelection)) renderSelection(previousSelection)
