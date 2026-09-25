@@ -98,6 +98,15 @@ section { margin-top: 31px; }
 .fuel-page-heading h2 { font-size: 18px; }
 .fuel-context { margin-top: 8px; color: #61736d; font-size: 11px; line-height: 1.55; }
 .fuel-context .fuel-note { color: #71807a; }
+.fuel-upcoming-summary { margin-top: 8px; color: #a96f17; font-size: 11px; font-weight: 700; }
+.fuel-upcoming { margin-top: 12px; padding: 12px; border: 1px solid #e4d5b7; border-radius: 13px; background: #fbf4e7; color: #53645e; }
+.fuel-upcoming h3 { color: #825817; font-size: 13px; }
+.fuel-upcoming-effective { margin-top: 4px; color: #71807a; font-size: 11px; }
+.fuel-upcoming-list { display: grid; gap: 7px; margin-top: 9px; }
+.fuel-upcoming-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 6px; align-items: center; font-size: 11px; }
+.fuel-upcoming-row strong { white-space: nowrap; }
+.fuel-upcoming-rise { color: #a34432; font-weight: 700; white-space: nowrap; }
+.fuel-upcoming-fall { color: #205c50; font-weight: 700; white-space: nowrap; }
 .fuel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .fuel-card { padding: 13px 15px; border-radius: 15px; }
 .fuel-card strong { display: block; margin-top: 13px; font-size: 29px; letter-spacing: -.07em; }

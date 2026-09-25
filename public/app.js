@@ -1,5 +1,6 @@
 import { collectionStatusForChina } from './collection-status.mjs'
 import { SUPPORTED_CURRENCIES, convertExchangeRate } from './exchange-rates.js'
+import { resolveUpcomingFuelView } from './fuel-upcoming.js'
 
 const app = document.querySelector('#app')
 const readingNote = document.querySelector('#reading-note')
@@ -15,6 +16,7 @@ let hasRendered = false
 let activeView = 'home'
 let latestData = null
 let readingNoteTimer = null
+let upcomingFuelTimer = null
 const TREND_RANGES = [
   { id: 'week', label: '1周', days: 7 },
   { id: 'month', label: '1月', months: 1 },
@@ -396,6 +398,37 @@ function fuelCard(item, detailed = false) {
   return card
 }
 
+function upcomingFuelPanel(view, compact = false) {
+  const upcoming = view.upcomingFuel
+  if (!upcoming || upcoming.status !== 'upcoming' || Date.parse(upcoming.effectiveFrom) <= Date.now()) return null
+  const rows = view.fuel.map((item) => {
+    const nextPrice = upcoming.prices?.[item.label]
+    if (!item.available || item.displayStatus !== 'current' || !Number.isFinite(nextPrice)) return null
+    const change = nextPrice - item.value
+    const changeText = change > 0 ? `上涨${formatter.format(change)}` : change < 0 ? `下降${formatter.format(Math.abs(change))}` : '价格不变'
+    return { item, nextPrice, changeText }
+  })
+  if (rows.some((row) => row === null) || rows.length !== 3) return null
+
+  if (compact) return element('p', 'fuel-upcoming-summary', `即将调整，${dateTime(upcoming.effectiveFrom)}生效`)
+
+  const panel = element('section', 'fuel-upcoming')
+  panel.append(element('h3', '', '即将调整'))
+  panel.append(element('p', 'fuel-upcoming-effective', `生效时间：${dateTime(upcoming.effectiveFrom)}`))
+  const list = element('div', 'fuel-upcoming-list')
+  rows.forEach(({ item, nextPrice, changeText }) => {
+    const row = element('p', 'fuel-upcoming-row')
+    row.append(
+      element('strong', '', item.label),
+      element('span', '', `${formatter.format(item.value)} → ${formatter.format(nextPrice)}元/升`),
+      element('span', changeText.startsWith('上涨') ? 'fuel-upcoming-rise' : changeText.startsWith('下降') ? 'fuel-upcoming-fall' : '', changeText),
+    )
+    list.append(row)
+  })
+  panel.append(list)
+  return panel
+}
+
 function brandSummaryItem(item) {
   const itemNode = element('article', 'brand-summary-item')
   const heading = element('div', 'brand-summary-heading')
@@ -438,6 +471,8 @@ function renderHome(view) {
   const fuelGrid = element('div', 'fuel-grid')
   view.fuel.forEach((item) => fuelGrid.append(fuelCard(item)))
   fuelSection.append(fuelGrid)
+  const upcomingSummary = upcomingFuelPanel(view, true)
+  if (upcomingSummary) fuelSection.append(upcomingSummary)
   fragment.append(goldSection, silverSection, brandSummary(view), fuelSection)
   return fragment
 }
@@ -548,6 +583,8 @@ function renderFuel(view) {
   const fuelGrid = element('div', 'fuel-grid')
   view.fuel.forEach((item) => fuelGrid.append(fuelCard(item, true)))
   fuelSection.append(fuelGrid)
+  const upcomingPanel = upcomingFuelPanel(view)
+  if (upcomingPanel) fuelSection.append(upcomingPanel)
   const trendSection = element('section', 'trend-section')
   trendSection.append(sectionHeading('油价调整记录', '最近10次调价'))
   const fuelSeries = fuelTrendPoints(latestData, ['guangdong-fuel-92', 'guangdong-fuel-95', 'guangdong-fuel-0-diesel'])
@@ -600,10 +637,16 @@ function renderExchange(view) {
 
 function render(data) {
   latestData = data
+  if (upcomingFuelTimer) clearTimeout(upcomingFuelTimer)
+  const upcomingFuel = data.views?.fuel?.upcomingFuel
+  const upcomingDelay = Date.parse(upcomingFuel?.effectiveFrom) - Date.now()
+  if (Number.isFinite(upcomingDelay) && upcomingDelay > 0) {
+    upcomingFuelTimer = setTimeout(() => render(data), Math.min(upcomingDelay + 25, 2_147_483_647))
+  }
   updateCollectionStatus(data.collection)
   topbar.classList.toggle('home-topbar', activeView === 'home')
   collectionStatus.hidden = activeView !== 'home'
-  const view = data.views[activeView]
+  const view = resolveUpcomingFuelView(data.views[activeView])
   app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : activeView === 'silver' ? renderSilver(view) : activeView === 'exchange' ? renderExchange(view) : renderFuel(view))
   app.setAttribute('aria-busy', 'false')
   hasRendered = true

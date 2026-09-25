@@ -86,6 +86,7 @@ try {
       return brandBottom <= navigationTop && fuelBottom <= navigationTop
     }), true, '滚动到页面底部时，品牌摘要和油价摘要不应被底部导航遮挡')
     const snapshot = await page.evaluate(() => fetch('/api/home.json', { cache: 'no-store' }).then((response) => response.json()))
+    if (!snapshot.views.home.upcomingFuel) assert.equal(await page.locator('.fuel-upcoming, .fuel-upcoming-summary').count(), 0)
     const anomalousSnapshot = structuredClone(snapshot)
     anomalousSnapshot.views.home.xauUsd.displayStatus = 'cached'
     anomalousSnapshot.views.home.gold[1].available = false
@@ -153,16 +154,17 @@ try {
     await assert.doesNotReject(() => page.getByText('历史数据积累中，国际黄金折算1条，国内黄金1条', { exact: true }).waitFor())
     assert.equal(await page.locator('.trend-card').nth(0).locator('.trend-axis-label').evaluateAll((labels) => labels.filter((label) => /^\d+\/\d+$/.test(label.textContent)).length), 1)
     await page.unroute('**/api/home.json')
+    const trendRanges = [-10, -2].map((daysAgo) => new Date(Date.now() + daysAgo * 24 * 60 * 60 * 1000).toISOString())
     const rangeSnapshot = structuredClone(snapshot)
     rangeSnapshot.history = [
-      { assetId: 'international-gold-cny-gram', value: 950, date: '2026-08-15', timestamp: '2026-08-15', observedAt: '2026-08-15T10:00:00.000Z', collectedAt: '2026-08-15T10:00:00.000Z' },
-      { assetId: 'au9999', value: 980, date: '2026-08-15', timestamp: '2026-08-15', observedAt: '2026-08-15T10:00:00.000Z', collectedAt: '2026-08-15T10:00:00.000Z' },
-      { assetId: 'international-gold-cny-gram', value: 960, date: '2026-08-29', timestamp: '2026-08-29', observedAt: '2026-08-29T10:00:00.000Z', collectedAt: '2026-08-29T10:00:00.000Z' },
-      { assetId: 'au9999', value: 990, date: '2026-08-29', timestamp: '2026-08-29', observedAt: '2026-08-29T10:00:00.000Z', collectedAt: '2026-08-29T10:00:00.000Z' },
+      ...trendRanges.flatMap((timestamp, index) => [
+        { assetId: 'international-gold-cny-gram', value: 950 + index * 10, date: timestamp.slice(0, 10), timestamp, observedAt: timestamp, collectedAt: timestamp },
+        { assetId: 'au9999', value: 980 + index * 10, date: timestamp.slice(0, 10), timestamp, observedAt: timestamp, collectedAt: timestamp },
+      ]),
     ]
-    rangeSnapshot.brandHistory = ['brand-gold-chow-sang-sang', 'brand-gold-chow-tai-fook', 'brand-gold-luk-fook', 'brand-gold-lao-feng-xiang'].map((assetId) => ({
-      assetId, value: 1392, date: '2026-08-29', timestamp: '2026-08-29', observedAt: '2026-08-29T10:00:00.000Z', collectedAt: '2026-08-29T10:00:00.000Z',
-    }))
+    rangeSnapshot.brandHistory = ['brand-gold-chow-sang-sang', 'brand-gold-chow-tai-fook', 'brand-gold-luk-fook', 'brand-gold-lao-feng-xiang'].flatMap((assetId) => trendRanges.map((timestamp) => ({
+      assetId, value: 1392, date: timestamp.slice(0, 10), timestamp, observedAt: timestamp, collectedAt: timestamp,
+    })))
     await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(rangeSnapshot) }))
     await page.getByRole('button', { name: '刷新显示' }).click()
     await page.locator('.trend-card').nth(0).getByRole('button', { name: '1周', exact: true }).click()
@@ -246,7 +248,33 @@ try {
     assert.equal(await page.getByText('当前汇率不可用', { exact: true }).count(), 0)
     assert.equal(await page.getByText('暂无可靠汇率', { exact: true }).count(), 0)
     await page.unroute('**/api/home.json')
+    const upcomingSnapshot = structuredClone(snapshot)
+    const fuelTestTimestamp = new Date().toISOString()
+    upcomingSnapshot.history = [{
+      assetId: 'guangdong-fuel-92', value: 8.63, date: fuelTestTimestamp.slice(0, 10),
+      timestamp: fuelTestTimestamp, observedAt: fuelTestTimestamp, collectedAt: fuelTestTimestamp,
+    }]
+    const upcomingFixture = {
+      status: 'upcoming',
+      effectiveFrom: new Date(Date.now() + 86_400_000).toISOString(),
+      sourceUrl: 'https://drc.gd.gov.cn/spjg/content/post_999.html',
+      prices: { '92号汽油': 8.7, '95号汽油': 9.4, '0号柴油': 8.4 },
+    }
+    for (const view of [upcomingSnapshot.views.home, upcomingSnapshot.views.fuel]) {
+      view.upcomingFuel = upcomingFixture
+      view.fuel = view.fuel.map((item) => ({
+        ...item,
+        available: true,
+        displayStatus: 'current',
+        value: { '92号汽油': 8.63, '95号汽油': 9.35, '0号柴油': 8.31 }[item.label],
+      }))
+    }
+    await page.route('**/api/home.json', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(upcomingSnapshot) }))
     await page.getByRole('button', { name: '刷新显示' }).click()
+    await page.getByRole('button', { name: '首页' }).click()
+    assert.equal(await page.locator('.fuel-upcoming-summary').count(), 1)
+    assert.match(await page.locator('.fuel-upcoming-summary').innerText(), /^即将调整，.+生效$/)
+    assert.equal((await page.locator('.fuel-upcoming-summary').innerText()).includes('8.70'), false)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await page.getByRole('button', { name: '油价' }).click()
     assert.equal(await page.locator('#collection-status').isHidden(), true, '油价页不应显示今日采集状态')
@@ -267,6 +295,12 @@ try {
     }), true, '三张油价卡应同一行且等高')
     assert.equal(await page.locator('.fuel-detail .source-line').count(), 0)
     assert.equal(await page.locator('.fuel-detail .quote-meta').count(), 0)
+    assert.equal(await page.locator('.fuel-upcoming').count(), 1, await page.locator('#app').innerText())
+    const upcomingRows = await page.locator('.fuel-upcoming-row').allTextContents()
+    assert.equal(upcomingRows.length, 3)
+    assert.equal(upcomingRows[0].includes('8.63 → 8.70元/升'), true)
+    assert.equal(upcomingRows[0].includes('上涨0.07'), true)
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await assert.doesNotReject(() => page.getByRole('heading', { name: '油价调整记录', exact: true }).waitFor())
     await assert.doesNotReject(() => page.getByText('当前仅有1次调价记录，历史数据积累中', { exact: true }).waitFor())
     assert.equal(await page.locator('.trend-section .trend-svg').count(), 0)

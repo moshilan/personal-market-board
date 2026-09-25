@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   findCurrentGuangdongFuelAnnouncement,
+  findGuangdongFuelAnnouncements,
   GUANGDONG_FUEL_INDEX_URL,
   parseGuangdongFuelAnnouncement,
   parseGuangdongFuelCandidates,
@@ -86,4 +87,33 @@ test('最新已生效公告读取失败时不回退伪装为较旧官方当前�
     throw new Error('模拟最新公告请求失败')
   }), /模拟最新公告请求失败/)
   assert.equal(requested.length, 2, '失败时只读取列表和最新已生效公告，不请求更旧公告')
+})
+
+test('已发布的未来公告作为upcoming保留，生效后提升为current', async () => {
+  const getText = async (url) => {
+    if (url === GUANGDONG_FUEL_INDEX_URL) return listing('2026-09-25', '2026-09-24')
+    if (url.endsWith('20260925.html')) return announcement('2026-09-25', ['8.70', '9.40', '8.40'])
+    return announcement('2026-09-24', ['8.63', '9.35', '8.31'])
+  }
+
+  const before = await findGuangdongFuelAnnouncements(new Date('2026-09-25T15:59:59.999Z'), getText)
+  assert.equal(before.current.effectiveFrom, '2026-09-24T16:00:00.000Z')
+  assert.equal(before.current.prices['92号汽油'], 8.63)
+  assert.equal(before.upcoming.status, 'upcoming')
+  assert.equal(before.upcoming.prices['92号汽油'], 8.7)
+
+  const after = await findGuangdongFuelAnnouncements(new Date('2026-09-25T16:00:00.000Z'), getText)
+  assert.equal(after.current.effectiveFrom, '2026-09-25T16:00:00.000Z')
+  assert.equal(after.current.prices['92号汽油'], 8.7)
+  assert.equal(after.upcoming, null)
+})
+
+test('未来公告解析失败时保留已验证当前公告且不伪造upcoming', async () => {
+  const result = await findGuangdongFuelAnnouncements(new Date('2026-09-25T15:00:00.000Z'), async (url) => {
+    if (url === GUANGDONG_FUEL_INDEX_URL) return listing('2026-09-25', '2026-09-24')
+    if (url.endsWith('20260925.html')) throw new Error('future notice unavailable')
+    return announcement('2026-09-24', ['8.63', '9.35', '8.31'])
+  })
+  assert.equal(result.current.prices['92号汽油'], 8.63)
+  assert.equal(result.upcoming, null)
 })

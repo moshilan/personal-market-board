@@ -140,6 +140,7 @@ export function normalizeSnapshot(rawSnapshot) {
     collectedAt: rawSnapshot.collectedAt,
     observations,
     exchangeRates: rawSnapshot.exchangeRates ?? null,
+    upcomingFuel: rawSnapshot.upcomingFuel ?? null,
   }
 }
 
@@ -215,7 +216,12 @@ export function buildDisplaySnapshot(liveSnapshot, store) {
       liveReason: liveObservation.reason,
     }
   })
-  return { collectedAt: liveSnapshot.collectedAt, observations, exchangeRates: liveSnapshot.exchangeRates ?? store.latestExchangeRates ?? null }
+  return {
+    collectedAt: liveSnapshot.collectedAt,
+    observations,
+    exchangeRates: liveSnapshot.exchangeRates ?? store.latestExchangeRates ?? null,
+    upcomingFuel: liveSnapshot.upcomingFuel ?? null,
+  }
 }
 
 export async function persistSnapshot(rawSnapshot, storePath) {

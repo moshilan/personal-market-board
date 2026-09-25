@@ -119,15 +119,35 @@ export function parseGuangdongFuelAnnouncement(html, { title, url }) {
   }
 }
 
-export async function findCurrentGuangdongFuelAnnouncement(collectedAt, getText) {
+export async function findGuangdongFuelAnnouncements(collectedAt, getText) {
   if (!(collectedAt instanceof Date) || !Number.isFinite(collectedAt.getTime())) throw new Error('采集时间无效')
   const listHtml = await getText(GUANGDONG_FUEL_INDEX_URL)
   const candidates = parseGuangdongFuelCandidates(listHtml)
   const eligible = candidates.filter((candidate) => Date.parse(candidate.effectiveFrom) <= collectedAt.getTime())
   if (eligible.length === 0) throw new Error('官方公告列表中没有已生效的成品油调价公告')
 
-  const selected = eligible[0]
-  const articleHtml = await getText(selected.url)
-  const announcement = parseGuangdongFuelAnnouncement(articleHtml, selected)
-  return { ...announcement, title: selected.title }
+  const currentCandidate = eligible[0]
+  const currentHtml = await getText(currentCandidate.url)
+  const current = { ...parseGuangdongFuelAnnouncement(currentHtml, currentCandidate), title: currentCandidate.title }
+
+  const upcomingCandidate = candidates.find((candidate) => Date.parse(candidate.effectiveFrom) > collectedAt.getTime())
+  let upcoming = null
+  if (upcomingCandidate) {
+    try {
+      const upcomingHtml = await getText(upcomingCandidate.url)
+      upcoming = {
+        ...parseGuangdongFuelAnnouncement(upcomingHtml, upcomingCandidate),
+        title: upcomingCandidate.title,
+        status: 'upcoming',
+      }
+    } catch {
+      // A malformed or unreachable future notice must not replace the verified current prices.
+    }
+  }
+
+  return { current, upcoming }
+}
+
+export async function findCurrentGuangdongFuelAnnouncement(collectedAt, getText) {
+  return (await findGuangdongFuelAnnouncements(collectedAt, getText)).current
 }

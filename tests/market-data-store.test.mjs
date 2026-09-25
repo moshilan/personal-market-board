@@ -96,6 +96,24 @@ test('历史保留最近366天，当前成功缓存不受影响', async () => {
   assert.equal(result.store.latestSuccessfulByAsset['xau-usd'].observedAt, '2026-08-24T08:00:00.000Z')
 })
 
+test('upcoming油价随最近采集快照持久化但不写入current观察或history', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
+  const storePath = join(directory, 'market-data.json')
+  const upcomingFuel = {
+    status: 'upcoming',
+    effectiveFrom: '2026-08-25T16:00:00.000Z',
+    sourceUrl: 'https://drc.gd.gov.cn/spjg/content/post_2.html',
+    prices: { '92号汽油': 8.1, '95号汽油': 8.7, '0号柴油': 7.5 },
+  }
+  const result = await persistSnapshot({
+    ...snapshot('2026-08-24T08:00:00.000Z'),
+    upcomingFuel,
+  }, storePath)
+  assert.deepEqual(result.store.latestAttempt.upcomingFuel, upcomingFuel)
+  assert.deepEqual(result.displaySnapshot.upcomingFuel, upcomingFuel)
+  assert.equal(result.store.history.some((item) => item.metadata.effectiveFrom === upcomingFuel.effectiveFrom), false)
+})
+
 test('派生记录不会被历史清理逻辑误删', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'market-data-store-'))
   const storePath = join(directory, 'market-data.json')

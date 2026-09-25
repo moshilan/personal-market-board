@@ -4,7 +4,7 @@ import { persistSnapshot } from '../src/market-data-store.mjs'
 import { CURRENCY_EXCHANGE_TOOL_URL, EXCHANGE_RATES_SOURCE_URL, parseCurrencyExchangeToolBatch, parseExchangeRateFun, unavailableExchangeRates } from '../src/exchange-rates.mjs'
 import { deriveDomesticSilverCny, deriveInternationalSilverCny, deriveSilverSpread } from '../src/silver-calculations.mjs'
 import { findLatestValidSgeDailyQuotation, makeSgeFallbackRecord } from '../src/sge-daily-quotation.mjs'
-import { findCurrentGuangdongFuelAnnouncement, GUANGDONG_FUEL_INDEX_URL } from '../src/guangdong-fuel.mjs'
+import { findGuangdongFuelAnnouncements, GUANGDONG_FUEL_INDEX_URL } from '../src/guangdong-fuel.mjs'
 
 const OUNCE_TO_GRAM = 31.1034768
 const TIME_ZONE = 'Asia/Shanghai'
@@ -294,22 +294,28 @@ async function collectBrands(collectedAt) {
 
 async function collectGuangdongFuel(collectedAt) {
   try {
-    const announcement = await findCurrentGuangdongFuelAnnouncement(collectedAt, getText)
+    const { current, upcoming } = await findGuangdongFuelAnnouncements(collectedAt, getText)
     const products = ['92号汽油', '95号汽油', '0号柴油'].map((product) => ({
       product,
       available: true,
-      value: announcement.prices[product],
+      value: current.prices[product],
       currency: 'CNY',
       unit: 'liter',
-      effectiveFrom: announcement.effectiveFrom,
+      effectiveFrom: current.effectiveFrom,
       collectedAt: collectedAt.toISOString(),
-      sourceUrl: announcement.sourceUrl,
+      sourceUrl: current.sourceUrl,
       sourceName: '广东省发展改革委',
     }))
-    products.push(unavailable('98号汽油', announcement.sourceUrl, collectedAt.toISOString(), '当前有效公告未列出98号汽油'))
-    return products
+    products.push(unavailable('98号汽油', current.sourceUrl, collectedAt.toISOString(), '当前有效公告未列出98号汽油'))
+    return {
+      observations: products,
+      upcomingFuel: upcoming ? { ...upcoming, collectedAt: collectedAt.toISOString() } : null,
+    }
   } catch (error) {
-    return ['92号汽油', '95号汽油', '0号柴油', '98号汽油'].map((product) => unavailable(product, SOURCES.guangdongFuel, collectedAt.toISOString(), error.message))
+    return {
+      observations: ['92号汽油', '95号汽油', '0号柴油', '98号汽油'].map((product) => unavailable(product, SOURCES.guangdongFuel, collectedAt.toISOString(), error.message)),
+      upcomingFuel: null,
+    }
   }
 }
 
@@ -381,7 +387,7 @@ const unavailableBrands = (reason) => ['周生生', '周大福', '六福珠宝',
 const unavailableFuel = (reason) => ['92号汽油', '95号汽油', '0号柴油', '98号汽油'].map((product) => (
   unavailable(product, SOURCES.guangdongFuel, collectedAt.toISOString(), reason)
 ))
-const [xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, brands, guangdongFuel] = simulateCollectionFailure
+const [xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, brands, guangdongFuelResult] = simulateCollectionFailure
   ? [
       unavailable('XAU/USD', SOURCES.xauUsdPrimary, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('XAG/USD', SOURCES.xauUsdPrimary, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
@@ -390,7 +396,7 @@ const [xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, brands, guangdongFue
       unavailable('Au99.99', SOURCES.au9999, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailable('Ag(T+D)', SOURCES.agTd, collectedAt.toISOString(), '验证模拟：全部实时采集失败'),
       unavailableBrands('验证模拟：全部实时采集失败'),
-      unavailableFuel('验证模拟：全部实时采集失败'),
+      { observations: unavailableFuel('验证模拟：全部实时采集失败'), upcomingFuel: null },
     ]
   : await Promise.all([
       collectXauUsd(collectedAt, xauOptions),
@@ -402,12 +408,13 @@ const [xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, brands, guangdongFue
       collectBrands(collectedAt).catch((error) => unavailableBrands(error.message)),
       collectGuangdongFuel(collectedAt),
     ])
+const guangdongFuel = guangdongFuelResult.observations
 const internationalGoldCny = deriveInternationalGoldCny(xauUsd, usdCny, collectedAt)
 const spread = deriveSpread(au9999, internationalGoldCny, collectedAt)
 const internationalSilverCny = deriveInternationalSilverCny(xagUsd, usdCny, collectedAt)
 const domesticSilverCny = deriveDomesticSilverCny(agTd, collectedAt)
 const silverSpread = deriveSilverSpread(domesticSilverCny, internationalSilverCny, collectedAt)
 
-const rawSnapshot = { collectedAt: collectedAt.toISOString(), xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, internationalGoldCny, spread, internationalSilverCny, domesticSilverCny, silverSpread, brands, guangdongFuel }
+const rawSnapshot = { collectedAt: collectedAt.toISOString(), xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, internationalGoldCny, spread, internationalSilverCny, domesticSilverCny, silverSpread, brands, guangdongFuel, upcomingFuel: guangdongFuelResult.upcomingFuel }
 const result = await persistSnapshot(rawSnapshot, DEFAULT_STORE_PATH)
 console.log(JSON.stringify({ liveSnapshot: result.liveSnapshot, displaySnapshot: result.displaySnapshot }, null, 2))
