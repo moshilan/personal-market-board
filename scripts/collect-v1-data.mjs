@@ -4,6 +4,7 @@ import { persistSnapshot } from '../src/market-data-store.mjs'
 import { CURRENCY_EXCHANGE_TOOL_URL, EXCHANGE_RATES_SOURCE_URL, parseCurrencyExchangeToolBatch, parseExchangeRateFun, unavailableExchangeRates } from '../src/exchange-rates.mjs'
 import { deriveDomesticSilverCny, deriveInternationalSilverCny, deriveSilverSpread } from '../src/silver-calculations.mjs'
 import { findLatestValidSgeDailyQuotation, makeSgeFallbackRecord } from '../src/sge-daily-quotation.mjs'
+import { findCurrentGuangdongFuelAnnouncement, GUANGDONG_FUEL_INDEX_URL } from '../src/guangdong-fuel.mjs'
 
 const OUNCE_TO_GRAM = 31.1034768
 const TIME_ZONE = 'Asia/Shanghai'
@@ -25,7 +26,7 @@ const SOURCES = {
     '六福珠宝': 'https://cngoldprice.com/brand/luk-fook/today-gold-price',
     '老凤祥': 'https://cngoldprice.com/brand/lao-feng-xiang/today-gold-price',
   },
-  guangdongFuel: 'https://drc.gd.gov.cn/ywgg/content/post_4942632.html',
+  guangdongFuel: GUANGDONG_FUEL_INDEX_URL,
 }
 
 function now() {
@@ -291,31 +292,21 @@ async function collectBrands(collectedAt) {
   ]
 }
 
-function extractFuelPrice(html, product) {
-  const text = html.replace(/<[^>]+>/g, ' ').replaceAll('&nbsp;', ' ')
-  const match = text.match(new RegExp(`${product}（Ⅵ）[\\s\\S]{0,800}?(\\d{4,5})[\\s\\S]{0,800}?(\\d{4,5})[\\s\\S]{0,800}?([\\d.]+)`))
-  if (!match) throw new Error(`未找到${product}最高零售价`)
-  return parseNumber(match[3])
-}
-
 async function collectGuangdongFuel(collectedAt) {
   try {
-    const html = await getText(SOURCES.guangdongFuel)
-    const effectiveMatch = html.match(/自(\d{4})年(\d{1,2})月(\d{1,2})日24时起执行/)
-    if (!effectiveMatch) throw new Error('未找到公告生效时间')
-    const effectiveDate = new Date(Date.UTC(Number(effectiveMatch[1]), Number(effectiveMatch[2]) - 1, Number(effectiveMatch[3]), 16))
+    const announcement = await findCurrentGuangdongFuelAnnouncement(collectedAt, getText)
     const products = ['92号汽油', '95号汽油', '0号柴油'].map((product) => ({
       product,
       available: true,
-      value: extractFuelPrice(html, product),
+      value: announcement.prices[product],
       currency: 'CNY',
       unit: 'liter',
-      effectiveFrom: effectiveDate.toISOString(),
+      effectiveFrom: announcement.effectiveFrom,
       collectedAt: collectedAt.toISOString(),
-      sourceUrl: SOURCES.guangdongFuel,
+      sourceUrl: announcement.sourceUrl,
       sourceName: '广东省发展改革委',
     }))
-    products.push(unavailable('98号汽油', SOURCES.guangdongFuel, collectedAt.toISOString(), '当前有效公告未列出98号汽油'))
+    products.push(unavailable('98号汽油', announcement.sourceUrl, collectedAt.toISOString(), '当前有效公告未列出98号汽油'))
     return products
   } catch (error) {
     return ['92号汽油', '95号汽油', '0号柴油', '98号汽油'].map((product) => unavailable(product, SOURCES.guangdongFuel, collectedAt.toISOString(), error.message))
