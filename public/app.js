@@ -3,6 +3,7 @@ import { SUPPORTED_CURRENCIES, convertExchangeRate } from './exchange-rates.js'
 import { FUEL_TREND_RANGES, fuelTrendPoints } from './fuel-trend.js'
 import { selectTrendDates } from './trend-range.js'
 import { resolveUpcomingFuelView } from './fuel-upcoming.js'
+import { renderChenpiReference } from './chenpi-reference.mjs'
 
 const app = document.querySelector('#app')
 const readingNote = document.querySelector('#reading-note')
@@ -746,23 +747,23 @@ function renderExchange(view) {
 function render(data) {
   latestData = data
   if (upcomingFuelTimer) clearTimeout(upcomingFuelTimer)
-  const upcomingFuel = data.views?.fuel?.upcomingFuel
+  const upcomingFuel = data?.views?.fuel?.upcomingFuel
   const upcomingDelay = Date.parse(upcomingFuel?.effectiveFrom) - Date.now()
   if (Number.isFinite(upcomingDelay) && upcomingDelay > 0) {
     upcomingFuelTimer = setTimeout(() => render(data), Math.min(upcomingDelay + 25, 2_147_483_647))
   }
-  updateCollectionStatus(data.collection)
+  updateCollectionStatus(data?.collection)
   topbar.classList.toggle('home-topbar', activeView === 'home')
   collectionStatus.hidden = activeView !== 'home'
-  const view = resolveUpcomingFuelView(data.views[activeView])
-  app.replaceChildren(activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : activeView === 'silver' ? renderSilver(view) : activeView === 'exchange' ? renderExchange(view) : renderFuel(view))
+  const view = resolveUpcomingFuelView(data?.views?.[activeView])
+  app.replaceChildren(activeView === 'chenpi' ? renderChenpiReference() : !view ? element('p', 'load-error', '暂时无法读取数据') : activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : activeView === 'silver' ? renderSilver(view) : activeView === 'exchange' ? renderExchange(view) : renderFuel(view))
   app.setAttribute('aria-busy', 'false')
   hasRendered = true
 }
 
 function selectView(viewName, focus = false) {
   activeView = viewName
-  const titles = { home: ['日常行情', null], gold: ['黄金', '国际、国内与品牌黄金'], silver: ['白银', '国际与国内白银'], exchange: ['汇率', null], fuel: ['广东油价', null] }
+  const titles = { home: ['日常行情', null], gold: ['黄金', '国际、国内与品牌黄金'], silver: ['白银', '国际与国内白银'], exchange: ['汇率', null], fuel: ['广东油价', null], chenpi: ['新会陈皮', '价格参考'] }
   pageTitle.textContent = titles[viewName][0]
   pageKicker.textContent = titles[viewName][1] ?? ''
   pageKicker.hidden = !titles[viewName][1]
@@ -772,7 +773,7 @@ function selectView(viewName, focus = false) {
     if (button.dataset.view === viewName) button.setAttribute('aria-current', 'page')
     else button.removeAttribute('aria-current')
   })
-  if (latestData) render(latestData)
+  render(latestData)
   if (focus) { pageShell.scrollTo({ top: 0, behavior: 'auto' }); pageTitle.focus({ preventScroll: true }) }
 }
 
@@ -797,6 +798,11 @@ async function loadDisplay() {
   refreshButton.textContent = '正在读取'
   setReadingNote('正在读取本地展示数据')
   try {
+    if (activeView === 'chenpi') {
+      render(latestData)
+      setReadingNote('当前展示固定调研快照，刷新显示不会更新报价', 2200)
+      return
+    }
     const response = await fetch(new URL('./api/home.json', import.meta.url), { cache: 'no-store' })
     if (!response.ok) throw new Error('读取失败')
     render(await response.json())
