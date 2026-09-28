@@ -206,4 +206,14 @@ section { margin-top: 31px; }
 .chenpi-village + .chenpi-village { margin-top: 10px; }
 .chenpi-village-name { font-size: 17px; color: #245a4f; }
 .chenpi-empty { margin-top: 10px; padding: 12px; border-radius: 12px; color: #61736d; background: #eeeee5; font-size: 12px; line-height: 1.6; }
+.chenpi-converted { margin-top: 5px; color: #61736d; font-size: 12px; line-height: 1.6; }
+.chenpi-year-evidence, .chenpi-page-check { margin-top: 6px; color: #53645e; font-size: 12px; line-height: 1.65; }
+.chenpi-conflict-note, .chenpi-exclusion { margin-top: 12px; padding: 10px; border-left: 3px solid #aa791e; border-radius: 6px; color: #775913; background: #f5ead0; font-size: 12px; line-height: 1.65; }
+.chenpi-history, .chenpi-excluded { margin-top: 18px; padding: 12px; border: 1px solid #d9d8cb; border-radius: 12px; background: #eeeee5; }
+.chenpi-history summary, .chenpi-excluded summary { padding: 5px 0; color: #53645e; cursor: pointer; font-size: 13px; font-weight: 700; line-height: 1.6; }
+.chenpi-history summary:focus-visible, .chenpi-excluded summary:focus-visible { outline: 2px solid #185fa5; outline-offset: 3px; }
+.chenpi-history .chenpi-price, .chenpi-excluded .chenpi-price { font-size: 20px; color: #61736d; }
+.chenpi-listing-tier { display: grid; gap: 10px; padding-top: 10px; border-top: 1px dashed #d9d8cb; }
+.chenpi-listing-tier h4 { color: #61736d; font-size: 13px; line-height: 1.5; }
+.chenpi-listing-tier .chenpi-empty { margin-top: 0; }
 @media (min-width: 540px) { .page-shell { padding-left: 24px; padding-right: 24px; } .gold-grid { gap: 14px; } }
