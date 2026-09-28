@@ -216,4 +216,9 @@ section { margin-top: 31px; }
 .chenpi-listing-tier { display: grid; gap: 10px; padding-top: 10px; border-top: 1px dashed #d9d8cb; }
 .chenpi-listing-tier h4 { color: #61736d; font-size: 13px; line-height: 1.5; }
 .chenpi-listing-tier .chenpi-empty { margin-top: 0; }
+.chenpi-one-year { display: grid; gap: 5px; margin-top: 12px; padding: 12px; border: 1px solid #d9d8cb; border-radius: 12px; background: #eeeee5; }
+.chenpi-one-year h3 { font-size: 16px; line-height: 1.5; }
+.chenpi-history-link { justify-self: start; padding: 8px 0; color: #245a4f; border: 0; background: transparent; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.chenpi-history-link:focus-visible { outline: 2px solid #185fa5; outline-offset: 3px; }
+.chenpi-category-note { margin-top: 0; color: #71817b; font-size: 11px; line-height: 1.6; }
 @media (min-width: 540px) { .page-shell { padding-left: 24px; padding-right: 24px; } .gold-grid { gap: 14px; } }

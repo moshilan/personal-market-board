@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pricePerJin, formatChenpiPrice, formatChenpiPriceTime, isMainChenpiListing } from '../public/chenpi-reference.mjs'
+import { pricePerJin, formatChenpiPrice, formatChenpiPriceTime, isMainChenpiListing, hasChenpiPriceTimeEvidence, chenpiOneYearReferences } from '../public/chenpi-reference.mjs'
 import { CHENPI_REFERENCE } from '../public/chenpi-reference-data.mjs'
 
 test('陈皮公斤区间和包装报价按500克换算，保留非封顶上界', () => {
@@ -31,7 +31,7 @@ test('陈皮快照保留市场原始年限组、未知报价日期和可追溯�
     for (const quote of village.quotes) {
       assert.equal(quote.sourceDate, null)
       assert.equal(quote.priceDate, null)
-      assert.equal(formatChenpiPriceTime(quote), '采集时间：2026年9月')
+      assert.equal(formatChenpiPriceTime(quote), '采集时间：2026年9月28日')
       assert.ok(['供应挂牌', '零售挂牌'].includes(quote.priceType))
     }
   }
@@ -39,7 +39,7 @@ test('陈皮快照保留市场原始年限组、未知报价日期和可追溯�
   assert.match(meijiang.label, /2016年标/)
   assert.match(meijiang.note, /不换算为10年/)
   const newPeel = all.find((quote) => quote.id === 'chakeng-zhimian-2023-erhong-250g')
-  assert.match(newPeel.note, /未满三年/)
+  assert.match(newPeel.yearEvidence.text, /未满3年/)
 })
 
 test('陈皮价格时间优先原报价日期，报道与电商采集时间不冒充报价日期', () => {
@@ -47,14 +47,14 @@ test('陈皮价格时间优先原报价日期，报道与电商采集时间不�
   for (const quote of quotes) {
     assert.match(formatChenpiPriceTime(quote), /^(报价日期|报道时间|采集时间)：\d{4}年\d{1,2}月/)
   }
-  assert.equal(formatChenpiPriceTime(CHENPI_REFERENCE.market[0]), '报道时间：2026年1月13日 · 采集时间：2026年9月')
-  assert.equal(formatChenpiPriceTime(CHENPI_REFERENCE.core[0]), '报道时间：2025年10月12日 · 采集时间：2026年9月')
+  assert.equal(formatChenpiPriceTime(CHENPI_REFERENCE.market[0]), '报道时间：2026年1月13日 · 采集时间：2026年9月28日')
+  assert.equal(formatChenpiPriceTime(CHENPI_REFERENCE.core[0]), '报道时间：2025年10月12日 · 采集时间：2026年9月28日')
   const guidance = CHENPI_REFERENCE.core.find((quote) => quote.id === 'core-10-years-circle-guidance')
-  assert.equal(formatChenpiPriceTime(guidance), '报价日期：2026年1月 · 报道时间：2026年7月28日 · 采集时间：2026年9月')
-  assert.equal(formatChenpiPriceTime({ priceDate: '2025-12-01', sourceDate: '2026-07-28', collectedAt: '2026-09-28' }), '报价日期：2025年12月1日 · 报道时间：2026年7月28日 · 采集时间：2026年9月')
+  assert.equal(formatChenpiPriceTime(guidance), '报价日期：2026年1月 · 报道时间：2026年7月28日 · 采集时间：2026年9月28日')
+  assert.equal(formatChenpiPriceTime({ priceDate: '2025-12-01', sourceDate: '2026-07-28', collectedAt: '2026-09-28' }), '报价日期：2025年12月1日 · 报道时间：2026年7月28日 · 采集时间：2026年9月28日')
   const newPeel = quotes.find((quote) => quote.id === 'chakeng-zhimian-2023-erhong-250g')
   assert.match(newPeel.label, /2023年晒制/)
-  assert.equal(formatChenpiPriceTime(newPeel), '采集时间：2026年9月')
+  assert.equal(formatChenpiPriceTime(newPeel), '采集时间：2026年9月28日')
 })
 
 test('历史圈枝价目完整保留四个原年档及青皮二红大红，不进入2026资料', () => {
@@ -79,10 +79,11 @@ test('全部挂牌有独立核验和年限证据，规格不冒充起购量，�
     assert.ok(['supply', 'retail', 'branded-retail'].includes(quote.listingTier))
   }
   assert.deepEqual(listings.filter(isMainChenpiListing).map((quote) => quote.id), [
-    'tianma-cha-story-10-years-50g', 'chakeng-zhang-2020-erhong', 'chakeng-zhimian-2023-erhong-250g',
+    'dongjia-luo-10-years', 'tianma-luo-5-years', 'tianma-cha-story-10-years-50g', 'chakeng-zhang-2020-erhong', 'chakeng-zhimian-2023-erhong-250g',
   ])
   const shengyuan = listings.find((quote) => quote.id === 'tianma-shengyuan-10-years-500g')
-  assert.match(shengyuan.pageCheck.text, /5年陈、500克380元/)
+  assert.equal(shengyuan.pageCheck.observedPrice.min, 380)
+  assert.equal(hasChenpiPriceTimeEvidence(shengyuan), false)
   assert.equal(shengyuan.yearEvidence.kind, 'conflict')
   const branded = listings.find((quote) => quote.id === 'tianma-cha-story-10-years-50g')
   const dated = listings.find((quote) => quote.id === 'chakeng-zhimian-2023-erhong-250g')
@@ -92,6 +93,33 @@ test('全部挂牌有独立核验和年限证据，规格不冒充起购量，�
   assert.equal(dated.packageSpec, '250克/件')
   assert.equal(dated.yearEvidence.kind, 'production-date')
   assert.equal(listings.find((quote) => quote.id === 'chakeng-zhang-2020-erhong').yearEvidence.kind, 'merchant-year')
+})
+
+test('当前报价必须有明确价格日期或当日直达页面的同价证据，页面存在与商品年份不够', () => {
+  const valid = CHENPI_REFERENCE.villages.find((village) => village.name === '茶坑').quotes[1]
+  assert.equal(hasChenpiPriceTimeEvidence(valid), true)
+  assert.equal(valid.pageCheck.observedAt, '2026-09-28T18:20:37+08:00')
+  for (const patch of [
+    { observedPrice: null }, { offerText: '' }, { excerpt: '' }, { method: 'search-cache' },
+    { httpStatus: 404 }, { state: 'page-exists' }, { checkedAt: '2026-09-27' },
+    { observedAt: '2026-09-27T18:20:37+08:00' },
+    { observedPrice: { ...valid.price, min: 250 } },
+  ]) assert.equal(isMainChenpiListing({ ...valid, pageCheck: { ...valid.pageCheck, ...patch } }), false)
+  assert.equal(isMainChenpiListing({ ...valid, pageCheck: null }), false)
+  for (const key of ['priceDate', 'priceUpdatedAt']) {
+    assert.equal(isMainChenpiListing({ ...valid, pageCheck: null, [key]: '2026-09-28' }), true)
+    for (const date of ['2026-09-29', '2026-02-30', '2026-09']) {
+      assert.equal(isMainChenpiListing({ ...valid, pageCheck: null, [key]: date }), false)
+    }
+    assert.equal(isMainChenpiListing({ ...valid, [key]: '2026-09-28', pageCheck: { state: 'sold-out' } }), false)
+  }
+})
+
+test('1年档仅取来源明确的1年资料，不把生产年份或未满3年的样本强行归档', () => {
+  const oneYear = chenpiOneYearReferences()
+  assert.equal(oneYear.length, 3)
+  assert.ok(oneYear.every((quote) => quote.yearBand === 1 && quote.period === 'historical'))
+  assert.deepEqual(chenpiOneYearReferences({ core: [{ label: '1年标称' }, { yearBand: 3 }, { yearBand: 1 }] }), [{ yearBand: 1 }])
 })
 
 test('下架售罄及缺失年限证据的挂牌均不能进入主参考', () => {
