@@ -1,9 +1,9 @@
 const collectedAt = '2026-09-28';
 const quote = (data) => ({ priceDate: null, sourceDate: null, collectedAt, ...data });
 const media = {
-  market: { sourceName: '信息时报｜清平中药材市场走访', sourceUrl: 'https://huacheng.gz-cmc.com/pages/2026/01/13/4b7567cf031e46469178443dd4e1f0b6.html', sourceDate: '2026-01-13', observationType: '实地走访 · 零售观察', period: '2026-observation' },
+  market: { sourceName: '信息时报｜清平中药材市场走访', sourceUrl: 'https://huacheng.gz-cmc.com/pages/2026/01/13/4b7567cf031e46469178443dd4e1f0b6.html', sourceDate: '2026-01-13', observationType: '记者实地市场走访', period: '2026-observation' },
   taKungPao: { sourceName: '大公报｜新会一线产区陈皮价格一览', sourceUrl: 'https://dw-media.tkww.hk/epaper/tkp/20251012/A14_Screen.pdf', sourceDate: '2025-10-12', observationType: '媒体价格表 · 历史资料', period: 'historical' },
-  health: { sourceName: '健康时报｜媒体转述指导参考', sourceUrl: 'https://www.jksb.com.cn/index.php?a=show&catid=788&id=256999&m=wap', sourceDate: '2026-07-28', priceDate: '2026-01', observationType: '行业指导价转述 · 原公告待核', period: '2026-observation' },
+  health: { sourceName: '健康时报｜媒体转述指导参考', sourceUrl: 'https://www.jksb.com.cn/index.php?a=show&catid=788&id=256999&m=wap', sourceDate: '2026-07-28', priceDate: '2026-01', observationType: '行业指导价的媒体转述 · 原始来源待核', period: '2026-observation' },
 };
 const luoSource = { sourceName: '惠农网｜罗立荣供应页面', sourceUrl: 'https://www.cnhnb.com/gongying/5707835/', merchant: '罗立荣' };
 const taKungPaoNote = '投资报道中的媒体参考表，未披露采价日期、样本数量及批发或零售性质；不代表成交价或官方指数，不按产区折扣推算其他村价格。';
@@ -12,7 +12,7 @@ const pageCheck = (text, observedAt, observedPrice, offerText, excerpt) => ({
   text, observedAt, observedPrice, offerText, excerpt,
 });
 const historicalCircle = (years, peel, min, max) => quote({
-  id: `historical-circle-${years}-${peel}`, label: `${years}年圈枝${peel}${years === 1 ? '（原表年档，非足3年陈皮）' : ''}`,
+  id: `historical-circle-${years}-${peel}`, label: `${years}年圈枝${peel}${years < 3 ? '新皮／柑皮（原表年档）' : '陈皮'}`,
   yearBand: years, peelType: peel,
   price: { min, max, unit: '元/斤' }, originalText: `${years}年圈枝${peel}：${min}-${max}；原单位人民币／斤`,
   priceType: '历史媒体价格表', ...media.taKungPao, circle: '圈枝',
@@ -21,22 +21,21 @@ const historicalCircle = (years, peel, min, max) => quote({
 
 export const CHENPI_REFERENCE = {
   collectedAt,
-  conflictNote: '2026年媒体转述10年圈枝指导参考为3500～5000元/斤；2025年媒体表10年圈枝青皮4500～6000、二红6000～7500、大红7500～10000元/斤。价格差异明显，来源日期、皮类、价格性质及采价方法不同，不能合成统一行情，也不能推算四村排名。',
+  conflictNote: '2026年1月指导价媒体转述为10年圈枝3500～5000元/斤；2025年媒体表10年圈枝青皮4500～6000、二红6000～7500、大红7500～10000元/斤。日期、皮类与采价方法不同，不能合成统一市场区间或四村排名。',
   market: [
     quote({
       id: 'market-3-to-5-years', label: '3–5年', price: { min: 400, max: 1160, unit: '元/公斤' },
       originalText: '3年～5年的新会陈皮零售价为400元～1160元/公斤', priceType: '零售调查观察', ...media.market,
-      note: '记者走访广州清平中药材市场的零售区间；未绑定村级产区、圈枝或驳枝、等级及仓储，不拆成独立3年或5年报价。',
+      note: '原3–5年合并区间，不拆成独立3年或5年报价。',
     }),
     quote({
       id: 'market-7-to-8-years', label: '7–8年', price: { min: 1600, max: 2400, unit: '元/公斤' },
       originalText: '7年～8年份的陈皮为1600元～2400元/公斤', priceType: '零售调查观察', ...media.market,
-      note: '同次清平市场走访的零售区间；未绑定村级产区、枝型、等级及仓储。',
     }),
     quote({
       id: 'market-8-to-10-plus-years', label: '8–10年及以上', price: { min: 2400, max: 4000, unit: '元/公斤', openEnded: true },
       originalText: '8年～10年及以上年份的陈皮，价格甚至高达2400元～4000元以上/公斤', priceType: '零售调查观察', ...media.market,
-      note: '原报道区间含更高报价，4000元不是封顶价；年限包含10年以上，不改标成独立10年报价，未绑定村级产区和枝型。',
+      note: '原报价上限非封顶；包含10年以上，不改标成独立10年价。',
     }),
   ],
   core: [
@@ -84,7 +83,7 @@ export const CHENPI_REFERENCE = {
       quote({
         id: 'dongjia-luo-10-years', label: '东甲10年商家供应样本', price: { min: 750, max: 850, unit: '元/斤' },
         originalOffer: '750～850元/斤', packageSpec: null, listingTier: 'supply',
-        yearEvidence: { kind: 'merchant-age', text: '仅商家标称10年，未披露生产或晒制时间' },
+        yearEvidence: { kind: 'merchant-age', text: '年限为商家标称10年，非独立陈化验证' },
         pageCheck: pageCheck('有询价入口', '2026-09-28T18:20:25+08:00', { min: 750, max: 850, unit: '元/斤' }, '750～850元/斤', '十年东甲陈皮；750-850元/斤；1斤起批'),
         originalText: '东甲十年陈皮：750～850元/斤，1斤起批', priceType: '供应挂牌', ...luoSource, circle: '商品总说明标称，规格未单独注明', minimumOrder: '1斤起批',
         note: '圈枝来自商品总说明，规格未独立注明；产地与十年年限均为商家声明。',
@@ -106,7 +105,7 @@ export const CHENPI_REFERENCE = {
       quote({
         id: 'tianma-luo-5-years', label: '天马5年商家供应样本', price: { min: 250, max: 280, unit: '元/斤' },
         originalOffer: '250～280元/斤', packageSpec: null, listingTier: 'supply',
-        yearEvidence: { kind: 'merchant-age', text: '仅商家标称5年，未披露生产或晒制时间' },
+        yearEvidence: { kind: 'merchant-age', text: '年限为商家标称5年，非独立陈化验证' },
         pageCheck: pageCheck('有询价入口', '2026-09-28T18:20:25+08:00', { min: 250, max: 280, unit: '元/斤' }, '250～280元/斤', '五年天马陈皮；250-280元/斤；1斤起批'),
         originalText: '天马五年陈皮：250～280元/斤，1斤起批', priceType: '供应挂牌', ...luoSource, circle: '商品总说明标称，规格未单独注明', minimumOrder: '1斤起批',
         note: '圈枝来自商品总说明，规格未独立注明；产地与五年年限均为商家声明。',
@@ -124,7 +123,7 @@ export const CHENPI_REFERENCE = {
       quote({
         id: 'tianma-cha-story-10-years-50g', label: '天马10年50克零售样本', price: { min: 108, max: 108, unit: '元/件', weightGrams: 50 },
         originalOffer: '108元/件（50克）', packageSpec: '50克/件', listingTier: 'branded-retail',
-        yearEvidence: { kind: 'merchant-age', text: '仅商家标称十年陈，未披露生产或晒制时间' },
+        yearEvidence: { kind: 'merchant-age', text: '年限为商家标称十年陈，非独立陈化验证' },
         pageCheck: pageCheck('有立即购买入口，未实际下单', '2026-09-28T18:20:35+08:00', { min: 108, unit: '元/件', weightGrams: 50 }, '108元/50g', '十年陈天马大红皮50g；￥108.00；立即购买'),
         originalText: '赛黄金丨十年陈 天马大红皮 新会陈皮 代用茶 50g：108元', priceType: '零售挂牌',
         sourceName: '有赞｜茶的故事商品页面', sourceUrl: 'https://detail.youzan.com/show/goods?alias=277ncpbdac7jhjx', merchant: '茶的故事旗舰店', minimumOrder: null,
@@ -142,7 +141,7 @@ export const CHENPI_REFERENCE = {
         note: '2020年标仅为商家声明，不能据此认定已满5年或6年陈。',
       }),
       quote({
-        id: 'chakeng-zhimian-2023-erhong-250g', label: '茶坑2023年晒制圈枝二红皮', price: { min: 255, max: 255, unit: '元/件', weightGrams: 250 },
+        id: 'chakeng-zhimian-2023-erhong-250g', label: '茶坑2023年晒制二红新皮／柑皮', price: { min: 255, max: 255, unit: '元/件', weightGrams: 250 },
         originalOffer: '255元/件（250克）', packageSpec: '250克/件', listingTier: 'retail',
         yearEvidence: { kind: 'production-date', text: '页面明确晒制时间2023年12月；截至快照日未满3年，不进入3年陈皮档' },
         pageCheck: pageCheck('显示库存15件及立即购买入口，未实际下单', '2026-09-28T18:20:37+08:00', { min: 255, unit: '元/件', weightGrams: 250 }, '255元/250g', '￥255.00-510.00；库存15件；255元/250克，510元/500克；晒制2023年12月'),

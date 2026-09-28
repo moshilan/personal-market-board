@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pricePerJin, formatChenpiPrice, formatChenpiPriceTime, isMainChenpiListing, hasChenpiPriceTimeEvidence, chenpiOneYearReferences } from '../public/chenpi-reference.mjs'
+import { pricePerJin, formatChenpiPrice, formatChenpiPriceTime, isMainChenpiListing, hasChenpiPriceTimeEvidence, hasChenpiPagePriceEvidence, chenpiOneYearReferences, hasChenpiDisplayValue, formatChenpiOffer } from '../public/chenpi-reference.mjs'
 import { CHENPI_REFERENCE } from '../public/chenpi-reference-data.mjs'
 
 test('陈皮公斤区间和包装报价按500克换算，保留非封顶上界', () => {
@@ -31,7 +31,7 @@ test('陈皮快照保留市场原始年限组、未知报价日期和可追溯�
     for (const quote of village.quotes) {
       assert.equal(quote.sourceDate, null)
       assert.equal(quote.priceDate, null)
-      assert.equal(formatChenpiPriceTime(quote), '采集时间：2026年9月28日')
+      assert.equal(formatChenpiPriceTime(quote), '采集时间：2026-09-28')
       assert.ok(['供应挂牌', '零售挂牌'].includes(quote.priceType))
     }
   }
@@ -45,16 +45,16 @@ test('陈皮快照保留市场原始年限组、未知报价日期和可追溯�
 test('陈皮价格时间优先原报价日期，报道与电商采集时间不冒充报价日期', () => {
   const quotes = [...CHENPI_REFERENCE.market, ...CHENPI_REFERENCE.core, ...CHENPI_REFERENCE.villages.flatMap((village) => village.quotes)]
   for (const quote of quotes) {
-    assert.match(formatChenpiPriceTime(quote), /^(报价日期|报道时间|采集时间)：\d{4}年\d{1,2}月/)
+    assert.match(formatChenpiPriceTime(quote), /^(报价日期|报道时间|采集时间)：\d{4}(?:年\d{1,2}月|-\d{2}-\d{2})/)
   }
-  assert.equal(formatChenpiPriceTime(CHENPI_REFERENCE.market[0]), '报道时间：2026年1月13日 · 采集时间：2026年9月28日')
-  assert.equal(formatChenpiPriceTime(CHENPI_REFERENCE.core[0]), '报道时间：2025年10月12日 · 采集时间：2026年9月28日')
+  assert.equal(formatChenpiPriceTime(CHENPI_REFERENCE.market[0]), '报道时间：2026年1月13日 · 采集时间：2026-09-28')
+  assert.equal(formatChenpiPriceTime(CHENPI_REFERENCE.core[0]), '报道时间：2025年10月12日 · 采集时间：2026-09-28')
   const guidance = CHENPI_REFERENCE.core.find((quote) => quote.id === 'core-10-years-circle-guidance')
-  assert.equal(formatChenpiPriceTime(guidance), '报价日期：2026年1月 · 报道时间：2026年7月28日 · 采集时间：2026年9月28日')
-  assert.equal(formatChenpiPriceTime({ priceDate: '2025-12-01', sourceDate: '2026-07-28', collectedAt: '2026-09-28' }), '报价日期：2025年12月1日 · 报道时间：2026年7月28日 · 采集时间：2026年9月28日')
+  assert.equal(formatChenpiPriceTime(guidance), '报价日期：2026年1月 · 报道时间：2026年7月28日 · 采集时间：2026-09-28')
+  assert.equal(formatChenpiPriceTime({ priceDate: '2025-12-01', sourceDate: '2026-07-28', collectedAt: '2026-09-28' }), '报价日期：2025年12月1日 · 报道时间：2026年7月28日 · 采集时间：2026-09-28')
   const newPeel = quotes.find((quote) => quote.id === 'chakeng-zhimian-2023-erhong-250g')
   assert.match(newPeel.label, /2023年晒制/)
-  assert.equal(formatChenpiPriceTime(newPeel), '采集时间：2026年9月28日')
+  assert.equal(formatChenpiPriceTime(newPeel), '采集时间：2026-09-28')
 })
 
 test('历史圈枝价目完整保留四个原年档及青皮二红大红，不进入2026资料', () => {
@@ -108,6 +108,7 @@ test('当前报价必须有明确价格日期或当日直达页面的同价证�
   assert.equal(isMainChenpiListing({ ...valid, pageCheck: null }), false)
   for (const key of ['priceDate', 'priceUpdatedAt']) {
     assert.equal(isMainChenpiListing({ ...valid, pageCheck: null, [key]: '2026-09-28' }), true)
+    assert.equal(hasChenpiPagePriceEvidence({ ...valid, pageCheck: { ...valid.pageCheck, httpStatus: 404 }, [key]: '2026-09-28' }), false)
     for (const date of ['2026-09-29', '2026-02-30', '2026-09']) {
       assert.equal(isMainChenpiListing({ ...valid, pageCheck: null, [key]: date }), false)
     }
@@ -129,5 +130,15 @@ test('下架售罄及缺失年限证据的挂牌均不能进入主参考', () =>
   }
   assert.equal(isMainChenpiListing({ ...valid, yearEvidence: { kind: 'conflict' } }), false)
   assert.equal(isMainChenpiListing({ ...valid, yearEvidence: null }), false)
+  assert.equal(isMainChenpiListing({ ...valid, conflicts: ['品种冲突'] }), false)
   assert.equal(isMainChenpiListing({ ...valid, price: { min: 108, unit: '元/件' } }), false)
+})
+
+test('普通缺失占位不渲染，包装原价优先且更新日期独立于商品年份', () => {
+  for (const value of [null, undefined, '', ' ', '未披露', '暂无', '未知', '未确认', '—']) assert.equal(hasChenpiDisplayValue(value), false)
+  assert.equal(hasChenpiDisplayValue('年标性质未确认，不推算足年'), true)
+  const listings = CHENPI_REFERENCE.villages.flatMap((village) => village.quotes)
+  assert.equal(formatChenpiOffer(listings.find((quote) => quote.id === 'tianma-cha-story-10-years-50g')), '108元 / 50g')
+  assert.equal(formatChenpiOffer(listings.find((quote) => quote.id === 'chakeng-zhimian-2023-erhong-250g')), '255元 / 250g')
+  assert.equal(formatChenpiPriceTime({ priceUpdatedAt: '2026-09-27', collectedAt: '2026-09-28', productionDate: '2023-12' }), '报价更新日期：2026年9月27日 · 采集时间：2026-09-28')
 })

@@ -27,9 +27,9 @@ function calendarDate(value) {
 }
 
 export function formatChenpiPriceTime(quote) {
-  const collected = `采集时间：${calendarDate(quote.collectedAt)}`
+  const collected = `采集时间：${quote.collectedAt}`
   const reported = quote.sourceDate ? `报道时间：${calendarDate(quote.sourceDate)}` : null
-  return [quote.priceDate ? `报价日期：${calendarDate(quote.priceDate)}` : null, reported, collected]
+  return [quote.priceDate ? `报价日期：${calendarDate(quote.priceDate)}` : quote.priceUpdatedAt ? `报价更新日期：${calendarDate(quote.priceUpdatedAt)}` : null, reported, collected]
     .filter(Boolean).join(' · ')
 }
 
@@ -44,6 +44,12 @@ export function hasChenpiPriceTimeEvidence(quote) {
   if (!exactDate(collected)) return false
   const dated = quote.priceDate ?? quote.priceUpdatedAt
   if (exactDate(dated) && dated <= collected) return true
+  return hasChenpiPagePriceEvidence(quote)
+}
+
+export function hasChenpiPagePriceEvidence(quote) {
+  const collected = quote.collectedAt
+  if (!exactDate(collected)) return false
   const check = quote.pageCheck
   const observed = check?.observedPrice
   return Boolean(check?.state === 'price-visible' && check.method === 'direct-page' && check.httpStatus === 200
@@ -55,6 +61,7 @@ export function hasChenpiPriceTimeEvidence(quote) {
 
 export function isMainChenpiListing(quote) {
   return ['production-date', 'merchant-age', 'merchant-year'].includes(quote.yearEvidence?.kind)
+    && !quote.conflicts?.length
     && !['removed', 'sold-out'].includes(quote.pageCheck?.state)
     && hasChenpiPriceTimeEvidence(quote) && pricePerJin(quote.price) !== null
 }
@@ -63,14 +70,14 @@ export function chenpiOneYearReferences(data = CHENPI_REFERENCE) {
   return data.core.filter((quote) => quote.yearBand === 1)
 }
 
-function listingCheckText(quote) {
-  const check = quote.pageCheck
-  const anchor = check?.offerText && check.method === 'direct-page'
-    ? `截至${check.checkedAt}，页面仍显示${check.offerText}`
-    : `截至${check?.checkedAt ?? quote.collectedAt}，未核实原报价是否仍显示`
-  const undated = check?.method === 'direct-page' && check.offerText
-    ? '；原报价未注明生效日期，仅证明当日页面展示。' : '；原报价时间不明，不作为当前参考。'
-  return `${anchor}。${check?.text ?? '页面价格时间不明'}${quote.priceDate || quote.priceUpdatedAt ? '' : undated}`
+export function hasChenpiDisplayValue(value) {
+  return typeof value === 'string' && Boolean(value.trim()) && !['未披露', '暂无', '未知', '未确认', '—'].includes(value.trim())
+}
+
+export function formatChenpiOffer(quote) {
+  if (!quote.price?.weightGrams) return quote.originalOffer
+  const { min, max = min, weightGrams } = quote.price
+  return `${number.format(min)}${max !== min ? `～${number.format(max)}` : ''}元 / ${weightGrams}g`
 }
 
 function node(tag, className, text) {
@@ -80,40 +87,44 @@ function node(tag, className, text) {
   return result
 }
 
-function quoteCard(quote, { excluded = false } = {}) {
-  const card = node('article', 'chenpi-card')
-  card.dataset.quoteId = quote.id
-  if (quote.yearBand !== undefined) card.dataset.yearBand = quote.yearBand
-  card.dataset.referenceRole = excluded ? 'excluded' : quote.period === 'historical' ? 'historical' : 'observation'
-  const heading = node('div', 'chenpi-card-heading')
-  const kind = quote.priceType === '零售挂牌' || quote.priceType === '零售调查观察' ? 'retail'
-    : quote.priceType === '供应挂牌' ? 'supply' : 'reference'
-  heading.append(node('h3', '', quote.label), node('span', `chenpi-kind chenpi-kind-${kind}`, quote.priceType))
-  card.append(heading, node('strong', 'chenpi-price', quote.merchant ? quote.originalOffer : formatChenpiPrice(quote.price)))
-  if (quote.merchant && quote.price.unit !== '元/斤') {
-    card.append(node('p', 'chenpi-converted', `辅助换算：${formatChenpiPrice(quote.price)}（按规格折算，非斤装售价）`))
-  }
-  card.append(node('p', 'chenpi-date', formatChenpiPriceTime(quote)))
-  if (quote.observationType) card.append(node('p', 'chenpi-detail', `资料类型：${quote.observationType}`))
-  card.append(node('p', 'chenpi-original', `原始口径：${quote.originalText}`))
-  if (quote.merchant) card.append(node('p', 'chenpi-detail', `商家：${quote.merchant}`))
-  if (quote.merchant && quote.circle) card.append(node('p', 'chenpi-detail', `圈枝：${quote.circle}`))
-  if (quote.merchant) {
-    card.append(node('p', 'chenpi-year-evidence', `年份证据：${quote.yearEvidence?.text ?? '未披露'}`))
-    if (quote.packageSpec) card.append(node('p', 'chenpi-detail', `包装规格：${quote.packageSpec}`))
-    if (quote.minimumOrder) card.append(node('p', 'chenpi-detail', `起购量：${quote.minimumOrder}`))
-    if (quote.priceUpdatedAt && !quote.priceDate) card.append(node('p', 'chenpi-date', `报价更新日期：${calendarDate(quote.priceUpdatedAt)}`))
-    card.append(node('p', 'chenpi-page-check', listingCheckText(quote)))
-  }
-  if (excluded) card.append(node('p', 'chenpi-exclusion', `移出主参考：${quote.exclusionReason ?? '页面状态或年份证据不足'}`))
-  if (quote.note && quote.period !== 'historical') card.append(node('p', 'chenpi-note', quote.note))
+function sourceLine(quote) {
   const source = node('p', 'chenpi-source')
   const link = node('a', '', quote.sourceName)
   link.href = quote.sourceUrl
   link.target = '_blank'
   link.rel = 'noopener noreferrer'
   source.append(document.createTextNode('来源：'), link)
-  card.append(source)
+  return source
+}
+
+function quoteCard(quote) {
+  const card = node('article', 'chenpi-card')
+  card.dataset.quoteId = quote.id
+  if (quote.yearBand !== undefined) card.dataset.yearBand = quote.yearBand
+  card.dataset.referenceRole = quote.merchant ? 'current-listing' : 'dated-reference'
+  const heading = node('div', 'chenpi-card-heading')
+  const kind = quote.priceType === '零售挂牌' || quote.priceType === '零售调查观察' ? 'retail'
+    : quote.priceType === '供应挂牌' ? 'supply' : 'reference'
+  heading.append(node('h3', '', quote.label), node('span', `chenpi-kind chenpi-kind-${kind}`, quote.priceType))
+  card.append(heading, node('strong', 'chenpi-price', quote.merchant ? formatChenpiOffer(quote) : formatChenpiPrice(quote.price)))
+  if (quote.merchant && quote.price.unit !== '元/斤') {
+    card.append(node('p', 'chenpi-converted', `折合约${formatChenpiPrice(quote.price)}（按包装重量换算）`))
+  }
+  const directlyChecked = quote.merchant && hasChenpiPagePriceEvidence(quote)
+  if (!directlyChecked || quote.priceDate || quote.priceUpdatedAt) card.append(node('p', 'chenpi-date', formatChenpiPriceTime(quote)))
+  if (directlyChecked) card.append(node('p', 'chenpi-date chenpi-page-check', `截至${quote.pageCheck.checkedAt}页面仍显示该价（${quote.pageCheck.offerText}）`))
+  if (quote.merchant) {
+    for (const [key, label] of [['merchant', '商家'], ['circle', '圈枝'], ['packageSpec', '包装规格'], ['minimumOrder', '起购量']]) {
+      if (hasChenpiDisplayValue(quote[key])) card.append(node('p', 'chenpi-detail', `${label}：${quote[key]}`))
+    }
+    if (quote.price.max > quote.price.min) card.append(node('p', 'chenpi-detail', '该商家挂牌范围，不代表市场区间'))
+    if (hasChenpiDisplayValue(quote.yearEvidence?.text)) card.append(node('p', 'chenpi-year-evidence', quote.yearEvidence.text))
+    if (hasChenpiDisplayValue(quote.pageCheck?.text)) card.append(node('p', 'chenpi-detail', quote.pageCheck.text))
+  } else {
+    card.append(node('p', 'chenpi-original', `原始口径：${quote.originalText}`))
+    if (quote.note) card.append(node('p', 'chenpi-note', quote.note))
+  }
+  card.append(sourceLine(quote))
   return card
 }
 
@@ -122,72 +133,97 @@ function referenceSection(title, description, quotes) {
   section.append(node('h2', '', title), node('p', 'chenpi-section-note', description))
   const list = node('div', 'chenpi-list')
   if (quotes?.length) quotes.forEach((quote) => list.append(quoteCard(quote)))
-  else list.append(node('p', 'chenpi-empty', '暂无可靠参考数据'))
   section.append(list)
   return section
 }
 
 export function renderChenpiReference(data = CHENPI_REFERENCE) {
   const fragment = document.createDocumentFragment()
-  fragment.append(node('p', 'chenpi-intro', '价格资料快照截至2026年9月28日，本页暂不自动更新'))
-  fragment.append(node('p', 'chenpi-page-note', '本页观察东甲、梅江、天马、茶坑四村，不代表官方产区分级；原文中的「核心」「一线」仅为来源用语。1斤＝500克。'))
-  fragment.append(node('p', 'chenpi-page-note', '各项为有时间依据的资料或挂牌观察，不代表当前有效价或成交价。页面显示价格不等于可购买；库存和购买条件未核实的会注明。'))
-  const market = referenceSection('年限行情参考', '按来源原年限归类。1年为新皮／低年限参考；3–5年等媒体分组保持原口径，不拆成精确单年价。', data.market)
-  const oneYear = node('div', 'chenpi-one-year')
-  oneYear.append(node('h3', '', '1年 · 新皮／低年限参考'), node('p', 'chenpi-section-note', '暂无已核实的1年当前报价。现有来源1年档为2025年历史媒体表，不能当2026当前价；不把未满3年的样本改归1年。'))
-  const showOneYear = node('button', 'chenpi-history-link', '查看来源1年历史档')
+  fragment.append(node('p', 'chenpi-intro', '价格资料快照截至2026年9月28日，本页暂不自动更新。'))
+  fragment.append(node('p', 'chenpi-page-note', '观察东甲、梅江、天马、茶坑四村，不代表官方分级。未满3年称新皮／柑皮，3年以上称陈皮；商家年限单独标明。1斤＝500克。'))
+  const listings = data.villages.flatMap((village) => village.quotes)
+  const current = listings.filter(isMainChenpiListing)
+  const merchants = new Set(current.map((quote) => quote.merchant))
+  const observations = referenceSection('公开报价观察', `2026-09-28核验：${current.length}条挂牌，${merchants.size}家独立商家。同商家多个商品不增加商家数；页面展示不等于价格仍有效或成交。`, [])
+  observations.classList.add('chenpi-current')
+  const list = observations.querySelector('.chenpi-list')
+  for (const [tier, label] of [['supply', '供应／批发挂牌'], ['retail', '普通零售挂牌'], ['branded-retail', '品牌小包装零售']]) {
+    const included = current.filter((quote) => quote.listingTier === tier)
+    if (!included.length) continue
+    const lane = node('div', 'chenpi-listing-tier')
+    lane.dataset.tier = tier
+    lane.append(node('h3', '', label))
+    included.forEach((quote) => lane.append(quoteCard(quote)))
+    const missing = [['circle', '圈枝'], ['packageSpec', '包装规格'], ['minimumOrder', '起购量']]
+      .filter(([key]) => included.some((quote) => !hasChenpiDisplayValue(quote[key]))).map(([, label]) => label)
+    lane.append(node('p', 'chenpi-category-note', `${missing.length ? `部分${missing.join('、')}未提供；` : ''}价格生效期限未注明，购买入口不保证库存或下单成功。`))
+    list.append(lane)
+  }
+  observations.append(node('p', 'chenpi-category-note', '其余组合暂无可核当前报价；不同年限、枝型、皮类及包装不合成市场区间或四村排名。'))
+  fragment.append(observations)
+
+  const market = referenceSection('市场走访参考', '记者2026年1月走访广州清平市场的零售观察，不是9月新报价。按原3–5年、7–8年、8–10年及以上展示，不拆成单年价。', data.market)
+  market.classList.add('chenpi-market')
+  market.append(node('p', 'chenpi-category-note', '本次走访未细分村、枝型、等级及仓储，不能与旁边挂牌认定为同品价差。'))
+  const oneYear = node('p', 'chenpi-one-year')
+  oneYear.append(document.createTextNode('1年新皮／柑皮参考仅有2025年历史资料，不将未满3年的商品强行归入1年。'))
+  const showOneYear = node('button', 'chenpi-history-link', '查看1年新皮／柑皮历史参考')
   showOneYear.type = 'button'
-  showOneYear.disabled = chenpiOneYearReferences(data).length === 0
   oneYear.append(showOneYear)
-  market.querySelector('.chenpi-list').before(oneYear)
+  market.append(oneYear)
   fragment.append(market)
-  const core = referenceSection('四村相关圈枝资料', '2026年媒体资料与历史媒体价格表分层；不同来源、皮类和交易口径不合并。', data.core.filter((quote) => quote.period !== 'historical'))
-  core.append(node('p', 'chenpi-conflict-note', data.conflictNote))
-  core.append(node('p', 'chenpi-empty', '四村3年圈枝专项参考：暂无可靠数据。'))
-  const history = node('details', 'chenpi-history')
+
+  const secondary = referenceSection('历史与其他参考', '较早资料按来源日期分层，不能当作2026-09-28当前商品价。', [])
+  const guidance = data.core.filter((quote) => quote.period !== 'historical')
+  if (guidance.length) {
+    const details = node('details', 'chenpi-guidance')
+    details.append(node('summary', '', `行业指导价的媒体转述（${guidance.length}条，原始来源待核）`))
+    guidance.forEach((quote) => details.append(quoteCard(quote)))
+    details.append(node('p', 'chenpi-conflict-note', data.conflictNote))
+    secondary.append(details)
+  }
   const historical = data.core.filter((quote) => quote.period === 'historical')
-  history.append(node('summary', '', `2025年历史媒体价格表（圈枝${historical.length}档，展开查看）`), node('p', 'chenpi-section-note', '历史资料不进入当前报价。原表未披露独立价目或采价日期，保留2025年10月12日报道时间；只摘录圈枝，其他枝型见原表。'), node('p', 'chenpi-category-note', '本表未披露批零、采价方法及样本量。十年以下新树价以梅江为基准，不按村间折扣推算独立报价。'))
-  const historyList = node('div', 'chenpi-list')
-  historical.forEach((quote) => historyList.append(quoteCard(quote)))
-  history.append(historyList)
+  const history = node('details', 'chenpi-history')
+  if (historical.length) {
+    history.append(node('summary', '', `2025年历史媒体价格表（圈枝${historical.length}档）`))
+    const table = node('table', 'chenpi-history-table')
+    const caption = node('caption', 'chenpi-date', `全表${formatChenpiPriceTime(historical[0])}。原价均为人民币／斤，非当前报价。`)
+    table.append(caption)
+    const head = node('thead')
+    const headers = node('tr')
+    for (const label of ['原表年档', '皮类', '原价（元／斤）']) {
+      const cell = node('th', '', label); cell.scope = 'col'; headers.append(cell)
+    }
+    head.append(headers); table.append(head)
+    const body = node('tbody')
+    historical.forEach((quote) => {
+      const row = node('tr')
+      row.dataset.quoteId = quote.id; row.dataset.yearBand = quote.yearBand
+      row.append(node('td', '', quote.yearBand < 3 ? `${quote.yearBand}年新皮／柑皮` : `${quote.yearBand}年陈皮`), node('td', '', quote.peelType), node('td', '', formatChenpiPrice(quote.price)))
+      body.append(row)
+    })
+    table.append(body)
+    history.append(table, sourceLine(historical[0]), node('p', 'chenpi-category-note', '全表圈枝。采价日期、批零及样本量未披露；十年以下为新树价、以梅江为基准，不推算各村独立报价。'))
+    secondary.append(history)
+  }
+  showOneYear.disabled = chenpiOneYearReferences(data).length === 0
   showOneYear.addEventListener('click', () => {
     history.open = true
     const first = history.querySelector('[data-year-band="1"]')
     if (first) { first.tabIndex = -1; first.scrollIntoView({ block: 'start' }); first.focus({ preventScroll: true }) }
   })
-  core.append(history)
-  fragment.append(core)
-  const villages = referenceSection('四村公开报价观察', '仅保留有明确报价／更新日期，或当日直达核到该价格的样本。供应、普通零售、品牌小包装分别观察；商品年份不作报价时间，不计算均价或排名。', [])
-  const list = villages.querySelector('.chenpi-list')
-  list.replaceChildren()
-  list.before(node('p', 'chenpi-conflict-note', '部分供应挂牌明显低于媒体参考。年限证据、枝型、皮类、包装、日期及采价口径不同，不能据此认定同品价差，也不合成统一价格区间。'))
-  for (const name of ['东甲', '梅江', '天马', '茶坑']) {
-    const group = node('div', 'chenpi-village')
-    group.append(node('h3', 'chenpi-village-name', name))
-    const quotes = data.villages?.find((village) => village.name === name)?.quotes ?? []
-    for (const [tier, label] of [['supply', '供应／批发挂牌'], ['retail', '普通零售挂牌'], ['branded-retail', '品牌小包装零售']]) {
-      const lane = node('div', 'chenpi-listing-tier')
-      lane.dataset.tier = tier
-      lane.append(node('h4', '', label))
-      const included = quotes.filter((quote) => quote.listingTier === tier && isMainChenpiListing(quote))
-      if (!included.length) continue
-      included.forEach((quote) => lane.append(quoteCard(quote)))
-      const missing = [['circle', '圈枝信息'], ['packageSpec', '包装规格'], ['minimumOrder', '起购量']]
-        .filter(([key]) => included.some((quote) => !quote[key])).map(([, label]) => label)
-      if (missing.length) lane.append(node('p', 'chenpi-category-note', `本类部分样本未披露${missing.join('、')}，缺失项不逐条占位。`))
-      lane.append(node('p', 'chenpi-category-note', '挂牌不是成交；购买入口不保证库存或下单成功。'))
-      group.append(lane)
-    }
-    if (!group.querySelector('.chenpi-card')) group.append(node('p', 'chenpi-empty', '暂无符合当前口径的公开报价'))
-    list.append(group)
-  }
-  const excludedQuotes = data.villages.flatMap((village) => village.quotes.filter((quote) => !isMainChenpiListing(quote)))
+  const excludedQuotes = listings.filter((quote) => !isMainChenpiListing(quote))
   const excluded = node('details', 'chenpi-excluded')
-  excluded.append(node('summary', '', `移出主参考的样本与核验记录（${excludedQuotes.length}条）`), node('p', 'chenpi-section-note', '下架、售罄、字段冲突或本轮无法核验的样本仅保留审查记录，不参与主参考。'))
-  const excludedList = node('div', 'chenpi-list')
-  excludedQuotes.forEach((quote) => excludedList.append(quoteCard(quote, { excluded: true })))
-  excluded.append(excludedList)
-  villages.append(excluded)
-  fragment.append(villages)
+  if (excludedQuotes.length) {
+    excluded.append(node('summary', '', `排除记录（${excludedQuotes.length}条，不作参考价）`))
+    excludedQuotes.forEach((quote) => {
+      const record = node('div', 'chenpi-audit-record')
+      record.dataset.quoteId = quote.id
+      record.append(node('h3', '', `${quote.merchant} · ${quote.label}`), node('p', 'chenpi-year-evidence', quote.yearEvidence.text), node('p', 'chenpi-exclusion', quote.exclusionReason ?? '价格时间或商品证据不足，不作当前参考'), node('p', 'chenpi-date', `核验时间：${quote.pageCheck?.checkedAt ?? quote.collectedAt}`), sourceLine(quote))
+      excluded.append(record)
+    })
+    secondary.append(excluded)
+  }
+  fragment.append(secondary)
   return fragment
 }

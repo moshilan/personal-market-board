@@ -202,23 +202,26 @@ section { margin-top: 31px; }
 .chenpi-source a { display: inline-block; padding: 5px 0; color: #245a4f; text-underline-offset: 3px; }
 .chenpi-source a:focus-visible { outline: 2px solid #185fa5; outline-offset: 2px; }
 .chenpi-date { margin-top: 2px; color: #61736d; font-size: 11px; line-height: 1.65; }
-.chenpi-village { display: grid; gap: 10px; }
-.chenpi-village + .chenpi-village { margin-top: 10px; }
-.chenpi-village-name { font-size: 17px; color: #245a4f; }
-.chenpi-empty { margin-top: 10px; padding: 12px; border-radius: 12px; color: #61736d; background: #eeeee5; font-size: 12px; line-height: 1.6; }
 .chenpi-converted { margin-top: 5px; color: #61736d; font-size: 12px; line-height: 1.6; }
 .chenpi-year-evidence, .chenpi-page-check { margin-top: 6px; color: #53645e; font-size: 12px; line-height: 1.65; }
 .chenpi-conflict-note, .chenpi-exclusion { margin-top: 12px; padding: 10px; border-left: 3px solid #aa791e; border-radius: 6px; color: #775913; background: #f5ead0; font-size: 12px; line-height: 1.65; }
-.chenpi-history, .chenpi-excluded { margin-top: 18px; padding: 12px; border: 1px solid #d9d8cb; border-radius: 12px; background: #eeeee5; }
-.chenpi-history summary, .chenpi-excluded summary { padding: 5px 0; color: #53645e; cursor: pointer; font-size: 13px; font-weight: 700; line-height: 1.6; }
-.chenpi-history summary:focus-visible, .chenpi-excluded summary:focus-visible { outline: 2px solid #185fa5; outline-offset: 3px; }
-.chenpi-history .chenpi-price, .chenpi-excluded .chenpi-price { font-size: 20px; color: #61736d; }
+.chenpi-history, .chenpi-excluded, .chenpi-guidance { margin-top: 12px; padding: 12px; border: 1px solid #d9d8cb; border-radius: 12px; background: #eeeee5; }
+.chenpi-history summary, .chenpi-excluded summary, .chenpi-guidance summary { padding: 5px 0; color: #53645e; cursor: pointer; font-size: 13px; font-weight: 700; line-height: 1.6; }
+.chenpi-history summary:focus-visible, .chenpi-excluded summary:focus-visible, .chenpi-guidance summary:focus-visible { outline: 2px solid #185fa5; outline-offset: 3px; }
+.chenpi-guidance .chenpi-card { margin-top: 10px; }
+.chenpi-guidance .chenpi-price { font-size: 20px; color: #61736d; }
 .chenpi-listing-tier { display: grid; gap: 10px; padding-top: 10px; border-top: 1px dashed #d9d8cb; }
-.chenpi-listing-tier h4 { color: #61736d; font-size: 13px; line-height: 1.5; }
-.chenpi-listing-tier .chenpi-empty { margin-top: 0; }
-.chenpi-one-year { display: grid; gap: 5px; margin-top: 12px; padding: 12px; border: 1px solid #d9d8cb; border-radius: 12px; background: #eeeee5; }
-.chenpi-one-year h3 { font-size: 16px; line-height: 1.5; }
+.chenpi-listing-tier > h3 { color: #61736d; font-size: 14px; line-height: 1.5; }
+.chenpi-one-year { margin-top: 12px; color: #61736d; font-size: 12px; line-height: 1.6; }
 .chenpi-history-link { justify-self: start; padding: 8px 0; color: #245a4f; border: 0; background: transparent; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .chenpi-history-link:focus-visible { outline: 2px solid #185fa5; outline-offset: 3px; }
 .chenpi-category-note { margin-top: 0; color: #71817b; font-size: 11px; line-height: 1.6; }
+.chenpi-section > .chenpi-category-note { margin-top: 10px; }
+.chenpi-history-table { width: 100%; margin-top: 12px; border-collapse: collapse; color: #53645e; font-size: 11px; line-height: 1.6; }
+.chenpi-history-table caption { margin-bottom: 8px; text-align: left; }
+.chenpi-history-table th, .chenpi-history-table td { padding: 7px 3px; border-bottom: 1px solid #d9d8cb; text-align: left; }
+.chenpi-history-table th:last-child, .chenpi-history-table td:last-child { text-align: right; }
+.chenpi-history-table tr:focus-visible { outline: 2px solid #185fa5; outline-offset: 1px; }
+.chenpi-audit-record { padding-top: 12px; }
+.chenpi-audit-record h3 { font-size: 13px; line-height: 1.6; }
 @media (min-width: 540px) { .page-shell { padding-left: 24px; padding-right: 24px; } .gold-grid { gap: 14px; } }
