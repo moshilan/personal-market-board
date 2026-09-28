@@ -20,6 +20,19 @@ export function formatChenpiPrice(price) {
   return `${range}${normalized.openEnded ? '及以上' : ''}元/斤`
 }
 
+function calendarDate(value, monthOnly = false) {
+  const match = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(value ?? '')
+  if (!match) return '未披露'
+  return `${match[1]}年${Number(match[2])}月${!monthOnly && match[3] ? `${Number(match[3])}日` : ''}`
+}
+
+export function formatChenpiPriceTime(quote) {
+  const collected = `采集时间：${calendarDate(quote.collectedAt, true)}`
+  const reported = quote.sourceDate ? `报道时间：${calendarDate(quote.sourceDate)}` : null
+  return [quote.priceDate ? `报价日期：${calendarDate(quote.priceDate)}` : null, reported, collected]
+    .filter(Boolean).join(' · ')
+}
+
 function node(tag, className, text) {
   const result = document.createElement(tag)
   if (className) result.className = className
@@ -46,7 +59,7 @@ function quoteCard(quote) {
   link.target = '_blank'
   link.rel = 'noopener noreferrer'
   source.append(document.createTextNode('来源：'), link)
-  card.append(source, node('p', 'chenpi-date', `${quote.sourceDateLabel ?? '来源日期'}：${quote.sourceDate ?? '未披露'} · 采集日期：${quote.collectedAt}`))
+  card.append(source, node('p', 'chenpi-date', formatChenpiPriceTime(quote)))
   return card
 }
 

@@ -1,9 +1,9 @@
 const collectedAt = '2026-09-28';
-const quote = (data) => ({ sourceDate: null, sourceDateLabel: '报价日期', collectedAt, ...data });
+const quote = (data) => ({ priceDate: null, sourceDate: null, collectedAt, ...data });
 const media = {
-  market: { sourceName: '信息时报｜清平中药材市场走访', sourceUrl: 'https://huacheng.gz-cmc.com/pages/2026/01/13/4b7567cf031e46469178443dd4e1f0b6.html', sourceDate: '2026-01-13', sourceDateLabel: '报道日期' },
-  taKungPao: { sourceName: '大公报｜新会一线产区陈皮价格一览', sourceUrl: 'https://dw-media.tkww.hk/epaper/tkp/20251012/A14_Screen.pdf', sourceDate: '2025-10-12', sourceDateLabel: '报道日期' },
-  health: { sourceName: '健康时报｜媒体转述指导参考', sourceUrl: 'https://www.jksb.com.cn/index.php?a=show&catid=788&id=256999&m=wap', sourceDate: '2026-07-28', sourceDateLabel: '报道日期' },
+  market: { sourceName: '信息时报｜清平中药材市场走访', sourceUrl: 'https://huacheng.gz-cmc.com/pages/2026/01/13/4b7567cf031e46469178443dd4e1f0b6.html', sourceDate: '2026-01-13' },
+  taKungPao: { sourceName: '大公报｜新会一线产区陈皮价格一览', sourceUrl: 'https://dw-media.tkww.hk/epaper/tkp/20251012/A14_Screen.pdf', sourceDate: '2025-10-12' },
+  health: { sourceName: '健康时报｜媒体转述指导参考', sourceUrl: 'https://www.jksb.com.cn/index.php?a=show&catid=788&id=256999&m=wap', sourceDate: '2026-07-28', priceDate: '2026-01' },
 };
 const luoSource = { sourceName: '惠农网｜罗立荣供应页面', sourceUrl: 'https://www.cnhnb.com/gongying/5707835/', merchant: '罗立荣' };
 const taKungPaoNote = '投资报道中的媒体参考表，未披露采价日期、样本数量及批发或零售性质；不代表成交价或官方指数，不按产区折扣推算其他村价格。';

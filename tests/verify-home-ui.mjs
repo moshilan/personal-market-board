@@ -495,9 +495,14 @@ try {
     assert.equal(await page.locator('.chenpi-kind-retail').count() > 0, true)
     assert.equal(await page.locator('.chenpi-card').evaluateAll((cards) => cards.every((card) => {
       const source = card.querySelector('.chenpi-source a')
-      return source?.href.startsWith('https://') && card.querySelector('.chenpi-date')?.textContent.includes('采集日期：2026-09-28')
+      const priceTime = card.querySelector('.chenpi-date')?.textContent ?? ''
+      return source?.href.startsWith('https://') && /^(报价日期|报道时间|采集时间)：\d{4}年\d{1,2}月/.test(priceTime)
+        && priceTime.includes('采集时间：2026年9月')
         && card.querySelector('.chenpi-original')?.textContent.startsWith('原始口径：')
     })), true, '每条陈皮记录应有来源链接、来源/采集日期和原始口径')
+    assert.equal(await page.locator('.chenpi-village .chenpi-date').evaluateAll((dates) => dates.every((date) => date.textContent === '采集时间：2026年9月')), true, '电商快照以采集时间为价格时间，不使用商品年份')
+    assert.equal(await marketReference.locator('.chenpi-date').evaluateAll((dates) => dates.every((date) => date.textContent.startsWith('报道时间：2026年1月13日'))), true)
+    assert.equal(await page.locator('[data-quote-id="core-10-years-circle-guidance"] .chenpi-date').textContent(), '报价日期：2026年1月 · 报道时间：2026年7月28日 · 采集时间：2026年9月')
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await assertBottomNavigation(page)
     await page.screenshot({ path: resolve(outputDirectory, `chenpi-${width}.png`), fullPage: true })
