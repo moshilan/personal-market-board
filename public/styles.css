@@ -100,6 +100,9 @@ section { margin-top: 31px; }
 .fuel-upcoming-summary { margin-top: 8px; color: #a96f17; font-size: 11px; font-weight: 700; }
 .fuel-upcoming { margin-top: 12px; padding: 12px; border: 1px solid #e4d5b7; border-radius: 13px; background: #fbf4e7; color: #53645e; }
 .fuel-upcoming h3 { color: #825817; font-size: 13px; }
+.fuel-upcoming { font-size: 12px; line-height: 1.6; }
+.fuel-upcoming > p, .fuel-upcoming > a { margin-top: 6px; }
+.fuel-upcoming-advice { color: #a34432; font-weight: 700; white-space: normal; overflow-wrap: anywhere; }
 .fuel-upcoming-effective { margin-top: 4px; color: #71807a; font-size: 11px; }
 .fuel-upcoming-list { display: grid; gap: 7px; margin-top: 9px; }
 .fuel-upcoming-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 6px; align-items: center; font-size: 11px; }

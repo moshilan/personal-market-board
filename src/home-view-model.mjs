@@ -62,6 +62,7 @@ export function buildMarketViews(displaySnapshot) {
   const brands = BRAND_ASSETS.map((definition) => decorate(definition, byAsset))
   const fuel = FUEL_ASSETS.map((definition) => decorate(definition, byAsset))
   const upcomingFuel = displaySnapshot?.upcomingFuel ?? null
+  const fuelReminder = displaySnapshot?.fuelReminder ?? null
   return {
     home: {
       gold: [references[0], gold.find((item) => item.assetId === 'au9999')],
@@ -71,10 +72,11 @@ export function buildMarketViews(displaySnapshot) {
       brands,
       fuel,
       upcomingFuel,
+      fuelReminder,
     },
     gold: { gold, references, brands, exchangeRates: displaySnapshot?.exchangeRates ?? null },
     silver: { silver, references: silverReferences, exchangeRates: displaySnapshot?.exchangeRates ?? null },
-    fuel: { fuel, upcomingFuel },
+    fuel: { fuel, upcomingFuel, fuelReminder },
     exchange: { exchangeRates: displaySnapshot.exchangeRates ?? null },
   }
 }

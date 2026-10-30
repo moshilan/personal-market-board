@@ -128,7 +128,7 @@ export async function findGuangdongFuelAnnouncements(collectedAt, getText) {
 
   const currentCandidate = eligible[0]
   const currentHtml = await getText(currentCandidate.url)
-  const current = { ...parseGuangdongFuelAnnouncement(currentHtml, currentCandidate), title: currentCandidate.title }
+  let current = { ...parseGuangdongFuelAnnouncement(currentHtml, currentCandidate), title: currentCandidate.title }
 
   const upcomingCandidate = candidates.find((candidate) => Date.parse(candidate.effectiveFrom) > collectedAt.getTime())
   let upcoming = null
@@ -145,7 +145,28 @@ export async function findGuangdongFuelAnnouncements(collectedAt, getText) {
     }
   }
 
-  return { current, upcoming }
+  let officialOutcome = null
+  for (const [, , href, label] of listHtml.matchAll(/<a\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a\s*>/gi)) {
+    const title = htmlText(label)
+    const match = title.match(/^(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日.*成品油价格.*(不作调整|不调整|暂停调整|延迟调整)/)
+    if (!match) continue
+    const url = new URL(decodeHtml(href), GUANGDONG_FUEL_INDEX_URL)
+    if (url.origin !== GUANGDONG_ORIGIN || !/^\/spjg\/content\/post_\d+\.html$/.test(url.pathname)) continue
+    const effectiveFrom = validShanghaiEffectiveTime(...match.slice(1, 4).map(Number))
+    if (Date.parse(effectiveFrom) < Date.parse(current.effectiveFrom) || (officialOutcome && Date.parse(effectiveFrom) <= Date.parse(officialOutcome.effectiveFrom))) continue
+    try {
+      const body = htmlText(await getText(url.href))
+      const resultDates = [...body.matchAll(/(?:自\s*)?(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日[^。；]{0,60}?(不作调整|不调整|暂停调整|延迟调整)/g)]
+      if (!resultDates.some((result) => validShanghaiEffectiveTime(...result.slice(1, 4).map(Number)) === effectiveFrom && result[4] === match[4])) continue
+      officialOutcome = { effectiveFrom, direction: /不/.test(match[4]) ? '不调整' : match[4], title, sourceUrl: url.href, sourceName: '广东省发展改革委', collectedAt: collectedAt.toISOString() }
+    } catch { /* An unreadable notice cannot confirm an outcome. */ }
+  }
+  if (officialOutcome && ['暂停调整', '延迟调整'].includes(officialOutcome.direction) && current.effectiveFrom === officialOutcome.effectiveFrom) {
+    const previous = eligible.find((candidate) => Date.parse(candidate.effectiveFrom) < Date.parse(officialOutcome.effectiveFrom))
+    if (!previous) throw new Error('原定调价已暂停或延迟，缺少此前已核实价格')
+    current = { ...parseGuangdongFuelAnnouncement(await getText(previous.url), previous), title: previous.title }
+  }
+  return { current, upcoming, officialOutcome }
 }
 
 export async function findCurrentGuangdongFuelAnnouncement(collectedAt, getText) {

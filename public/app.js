@@ -3,6 +3,7 @@ import { SUPPORTED_CURRENCIES, convertExchangeRate } from './exchange-rates.js'
 import { FUEL_TREND_RANGES, fuelTrendPoints } from './fuel-trend.js'
 import { selectTrendDates } from './trend-range.js'
 import { resolveUpcomingFuelView } from './fuel-upcoming.js'
+import { resolveFuelReminder } from './fuel-reminder.js'
 import { renderChenpiReference } from './chenpi-reference.mjs'
 
 const app = document.querySelector('#app')
@@ -492,33 +493,68 @@ function fuelCard(item, detailed = false) {
 }
 
 function upcomingFuelPanel(view, compact = false) {
+  const reminder = resolveFuelReminder(view)
+  if (reminder.state !== 'official' || reminder.outcome) {
+    if (compact) return element('p', 'fuel-upcoming-summary', reminder.summary)
+    const panel = element('section', 'fuel-upcoming')
+    panel.append(element('h3', '', reminder.state === 'prediction' ? '媒体预测' : reminder.state === 'official' ? '官方已公告' : '下一轮调价窗口'))
+    panel.append(element('p', '', reminder.summary))
+    if (reminder.next) {
+      panel.append(element('p', '', `${reminder.outcome && reminder.direction !== '不调整' ? '原计划窗口' : '计划窗口'}：${reminder.next.date}，24时（北京时间），不代表必然调价。`))
+      const link = element('a', '', `${reminder.next.sourceName} · 核验于${reminder.next.verifiedAt}`)
+      link.href = reminder.next.imageUrl
+      link.target = '_blank'; link.rel = 'noopener noreferrer'
+      panel.append(link)
+    }
+    const source = reminder.prediction ?? reminder.outcome
+    if (source) {
+      const link = element('a', '', source.sourceName)
+      link.href = source.sourceUrl; link.target = '_blank'; link.rel = 'noopener noreferrer'
+      panel.append(element('p', '', source.title), link)
+      if (source.publishedAt) panel.append(element('p', '', `发布时间：${dateTime(source.publishedAt)}（北京时间）`))
+      if (source.effectiveFrom) panel.append(element('p', '', `公告执行时间：${dateTime(source.effectiveFrom)}（北京时间）`))
+      if (source.collectedAt) panel.append(element('p', '', `采集时间：${dateTime(source.collectedAt)}（北京时间）`))
+    } else panel.append(element('p', '', view.fuelReminder?.predictionReason ?? '暂无未过期的可靠媒体预测'))
+    panel.append(element('p', 'fuel-note', '按10个工作日机制核对；节假日及临时调控可能影响安排，暂停、延迟、不调整以官方公告为准。未核实日期不外推。'))
+    if (view.fuelReminder?.ruleUrl) {
+      const rule = element('a', 'fuel-note', '国家发展改革委调价机制说明')
+      rule.href = view.fuelReminder.ruleUrl; rule.target = '_blank'; rule.rel = 'noopener noreferrer'
+      panel.append(rule)
+    }
+    if (view.fuelReminder?.collectedAt) panel.append(element('p', 'fuel-note', `提醒数据采集于${dateTime(view.fuelReminder.collectedAt)}（北京时间）`))
+    return panel
+  }
   const upcoming = view.upcomingFuel
   if (!upcoming || upcoming.status !== 'upcoming' || Date.parse(upcoming.effectiveFrom) <= Date.now()) return null
   const rows = view.fuel.map((item) => {
     const nextPrice = upcoming.prices?.[item.label]
-    if (!item.available || item.displayStatus !== 'current' || !Number.isFinite(nextPrice)) return null
-    const change = nextPrice - item.value
-    const changeText = change > 0 ? `上涨${formatter.format(change)}` : change < 0 ? `下降${formatter.format(Math.abs(change))}` : '价格不变'
+    if (!Number.isFinite(nextPrice)) return null
+    const change = item.available && item.displayStatus === 'current' ? nextPrice - item.value : null
+    const changeText = change === null ? '涨跌待核对' : change > 0 ? `上涨${formatter.format(change)}` : change < 0 ? `下降${formatter.format(Math.abs(change))}` : '价格不变'
     return { item, nextPrice, changeText }
   })
   if (rows.some((row) => row === null) || rows.length !== 3) return null
 
-  if (compact) return element('p', 'fuel-upcoming-summary', `即将调整，${dateTime(upcoming.effectiveFrom)}生效`)
+  if (compact) return element('p', 'fuel-upcoming-summary', `官方已公告：${reminder.direction}，${dateTime(upcoming.effectiveFrom)}生效。${reminder.advice ?? ''}`)
 
   const panel = element('section', 'fuel-upcoming')
-  panel.append(element('h3', '', '即将调整'))
-  panel.append(element('p', 'fuel-upcoming-effective', `生效时间：${dateTime(upcoming.effectiveFrom)}`))
+  panel.append(element('h3', '', `官方已公告：${reminder.direction}`))
+  panel.append(element('p', 'fuel-upcoming-effective', `生效时间：${dateTime(upcoming.effectiveFrom)}（北京时间）`))
   const list = element('div', 'fuel-upcoming-list')
   rows.forEach(({ item, nextPrice, changeText }) => {
     const row = element('p', 'fuel-upcoming-row')
     row.append(
       element('strong', '', item.label),
-      element('span', '', `${formatter.format(item.value)} → ${formatter.format(nextPrice)}元/升`),
+      element('span', '', item.available ? `${formatter.format(item.value)} → ${formatter.format(nextPrice)}元/升` : `新价${formatter.format(nextPrice)}元/升，当前价不可用`),
       element('span', changeText.startsWith('上涨') ? 'fuel-upcoming-rise' : changeText.startsWith('下降') ? 'fuel-upcoming-fall' : '', changeText),
     )
     list.append(row)
   })
   panel.append(list)
+  if (reminder.advice) panel.append(element('p', 'fuel-upcoming-advice', reminder.advice))
+  const source = element('a', '', '广东省发展改革委公告')
+  source.href = upcoming.sourceUrl; source.target = '_blank'; source.rel = 'noopener noreferrer'
+  panel.append(source, element('p', 'fuel-note', `采集时间：${dateTime(upcoming.collectedAt)}（北京时间）`))
   return panel
 }
 
@@ -749,13 +785,14 @@ function render(data) {
   if (upcomingFuelTimer) clearTimeout(upcomingFuelTimer)
   const upcomingFuel = data?.views?.fuel?.upcomingFuel
   const upcomingDelay = Date.parse(upcomingFuel?.effectiveFrom) - Date.now()
-  if (Number.isFinite(upcomingDelay) && upcomingDelay > 0) {
-    upcomingFuelTimer = setTimeout(() => render(data), Math.min(upcomingDelay + 25, 2_147_483_647))
-  }
+  upcomingFuelTimer = setTimeout(() => render(data), Number.isFinite(upcomingDelay) && upcomingDelay > 0 ? Math.min(upcomingDelay + 25, 60_000) : 60_000)
   updateCollectionStatus(data?.collection)
   topbar.classList.toggle('home-topbar', activeView === 'home')
   collectionStatus.hidden = activeView !== 'home'
-  const view = resolveUpcomingFuelView(data?.views?.[activeView])
+  let view = resolveUpcomingFuelView(data?.views?.[activeView])
+  if (view?.fuel && resolveFuelReminder(view).awaiting) {
+    view = { ...view, fuel: view.fuel.map((item) => item.available ? { ...item, displayStatus: 'cached', reason: '上一调价窗口结果待核实，以下为最近已核实价格' } : item) }
+  }
   app.replaceChildren(activeView === 'chenpi' ? renderChenpiReference() : !view ? element('p', 'load-error', '暂时无法读取数据') : activeView === 'home' ? renderHome(view) : activeView === 'gold' ? renderGold(view) : activeView === 'silver' ? renderSilver(view) : activeView === 'exchange' ? renderExchange(view) : renderFuel(view))
   app.setAttribute('aria-busy', 'false')
   hasRendered = true

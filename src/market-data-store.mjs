@@ -142,6 +142,7 @@ export function normalizeSnapshot(rawSnapshot) {
     observations,
     exchangeRates: rawSnapshot.exchangeRates ?? null,
     upcomingFuel: rawSnapshot.upcomingFuel ?? null,
+    fuelReminder: rawSnapshot.fuelReminder ?? null,
   }
 }
 
@@ -231,6 +232,7 @@ export function buildDisplaySnapshot(liveSnapshot, store) {
     observations,
     exchangeRates,
     upcomingFuel: liveSnapshot.upcomingFuel ?? null,
+    fuelReminder: liveSnapshot.fuelReminder ?? null,
   }
 }
 

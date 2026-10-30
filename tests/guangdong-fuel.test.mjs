@@ -23,6 +23,35 @@ function announcement(date, prices) {
   return `<article><p>自${year}年${month}月${day}日24时起执行</p><table><tr><th>品名</th><th>最高批发价格（元/吨）</th><th>最高零售价格（元/吨）</th><th>最高零售价格（元/升）</th></tr>${rows}</table></article>`
 }
 
+test('官方特殊结果需同轮正文，不采信错位正文及非官方链接', async () => {
+  for (const direction of ['不作调整', '暂停调整', '延迟调整']) {
+    const link = `<a href="/spjg/content/post_123.html">2026年11月12日成品油价格${direction}</a>`
+    const getText = async (url) => url === GUANGDONG_FUEL_INDEX_URL ? `${listing('2026-10-29')}${link}` : url.endsWith('post_123.html') ? `<p>自2026年11月12日24时起成品油价格${direction}。</p>` : announcement('2026-10-29', ['8.91', '9.65', '8.60'])
+    const result = await findGuangdongFuelAnnouncements(new Date('2026-11-12T08:00:00Z'), getText)
+    assert.equal(result.officialOutcome.direction, direction === '不作调整' ? '不调整' : direction)
+    assert.equal(result.current.prices['92号汽油'], 8.91)
+    const mismatch = await findGuangdongFuelAnnouncements(new Date('2026-11-12T08:00:00Z'), async (url) => url.endsWith('post_123.html') ? `<p>2026年10月15日成品油价格${direction}。</p>` : getText(url))
+    assert.equal(mismatch.officialOutcome, null)
+    const untrusted = await findGuangdongFuelAnnouncements(new Date('2026-11-12T08:00:00Z'), async (url) => url === GUANGDONG_FUEL_INDEX_URL ? `${listing('2026-10-29')}${link.replace('/spjg/content/post_123.html', 'https://example.com/spjg/content/post_123.html')}` : getText(url))
+    assert.equal(untrusted.officialOutcome, null)
+  }
+})
+
+test('暂停或延迟后的再次采集不将原计划新价写为当前价', async () => {
+  for (const direction of ['暂停调整', '延迟调整']) {
+    const getText = async (url) => {
+      if (url === GUANGDONG_FUEL_INDEX_URL) return `${listing('2026-11-12', '2026-10-29')}<a href="/spjg/content/post_123.html">2026年11月12日成品油价格${direction}</a>`
+      if (url.endsWith('post_123.html')) return `<p>自2026年11月12日24时起成品油价格${direction}。</p>`
+      return url.endsWith('20261112.html') ? announcement('2026-11-12', ['9.10', '9.90', '8.70']) : announcement('2026-10-29', ['8.91', '9.65', '8.60'])
+    }
+    const result = await findGuangdongFuelAnnouncements(new Date('2026-11-13T01:00:00Z'), getText)
+    assert.equal(result.current.prices['92号汽油'], 8.91)
+    assert.equal(result.current.effectiveFrom, '2026-10-29T16:00:00.000Z')
+    assert.equal(result.officialOutcome.direction, direction)
+    await assert.rejects(() => findGuangdongFuelAnnouncements(new Date('2026-11-13T01:00:00Z'), async (url) => url === GUANGDONG_FUEL_INDEX_URL ? (await getText(url)).replace(/<a href="\/spjg\/content\/post_20261029.html">[^<]+<\/a>/, '') : getText(url)), /缺少此前已核实价格/)
+  }
+})
+
 test('广东公告列表只接受官方商品价格调价公告并按生效日期排序', () => {
   const html = `${listing('2026-09-24', '2026-09-11', '2026-08-28')}<a href="https://example.com/spjg/content/post_9.html">2026年9月25日24时起成品油价格调整</a><a href="/spjg/content/post_8.html">2026年9月24日成品油价格不作调整</a>`
   const candidates = parseGuangdongFuelCandidates(html)

@@ -114,7 +114,7 @@ try {
     setStatus(snapshot.views.silver.silver, 'domestic-international-silver-spread', 'market-closed')
     snapshot.views.silver.references.forEach((item) => { item.displayStatus = 'current' })
     snapshot.views.fuel.fuel.forEach((item) => { item.displayStatus = 'current' })
-    if (!snapshot.views.home.upcomingFuel) assert.equal(await page.locator('.fuel-upcoming, .fuel-upcoming-summary').count(), 0)
+    if (!snapshot.views.home.upcomingFuel) assert.equal(await page.locator('.fuel-upcoming, .fuel-upcoming-summary').count(), 1)
     const anomalousSnapshot = structuredClone(snapshot)
     anomalousSnapshot.views.home.xauUsd.displayStatus = 'cached'
     anomalousSnapshot.views.home.gold[0].displayStatus = 'cached'
@@ -378,7 +378,7 @@ try {
     await page.getByRole('button', { name: '刷新显示' }).click()
     await page.getByRole('button', { name: '首页' }).click()
     assert.equal(await page.locator('.fuel-upcoming-summary').count(), 1)
-    assert.match(await page.locator('.fuel-upcoming-summary').innerText(), /^即将调整，.+生效$/)
+    assert.match(await page.locator('.fuel-upcoming-summary').innerText(), /^官方已公告：上涨，.+生效。.+已确定上涨/)
     assert.equal((await page.locator('.fuel-upcoming-summary').innerText()).includes('8.70'), false)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true)
     await page.getByRole('button', { name: '油价' }).click()

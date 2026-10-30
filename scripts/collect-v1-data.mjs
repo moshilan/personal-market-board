@@ -6,6 +6,7 @@ import { deriveGoldSpread, deriveInternationalGoldCny } from '../src/gold-calcul
 import { deriveDomesticSilverCny, deriveInternationalSilverCny, deriveSilverSpread } from '../src/silver-calculations.mjs'
 import { findLatestValidSgeDailyQuotation, makeSgeFallbackRecord } from '../src/sge-daily-quotation.mjs'
 import { findGuangdongFuelAnnouncements, GUANGDONG_FUEL_INDEX_URL } from '../src/guangdong-fuel.mjs'
+import { collectFuelReminder } from '../src/fuel-reminder.mjs'
 
 const TIME_ZONE = 'Asia/Shanghai'
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url))
@@ -266,7 +267,7 @@ async function collectBrands(collectedAt) {
 
 async function collectGuangdongFuel(collectedAt) {
   try {
-    const { current, upcoming } = await findGuangdongFuelAnnouncements(collectedAt, getText)
+    const { current, upcoming, officialOutcome } = await findGuangdongFuelAnnouncements(collectedAt, getText)
     const products = ['92号汽油', '95号汽油', '0号柴油'].map((product) => ({
       product,
       available: true,
@@ -282,6 +283,7 @@ async function collectGuangdongFuel(collectedAt) {
     return {
       observations: products,
       upcomingFuel: upcoming ? { ...upcoming, collectedAt: collectedAt.toISOString() } : null,
+      officialOutcome,
     }
   } catch (error) {
     return {
@@ -333,6 +335,7 @@ const internationalSilverCny = deriveInternationalSilverCny(xagUsd, usdCny, coll
 const domesticSilverCny = deriveDomesticSilverCny(agTd, collectedAt)
 const silverSpread = deriveSilverSpread(domesticSilverCny, internationalSilverCny, collectedAt)
 
-const rawSnapshot = { collectedAt: collectedAt.toISOString(), xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, internationalGoldCny, spread, internationalSilverCny, domesticSilverCny, silverSpread, brands, guangdongFuel, upcomingFuel: guangdongFuelResult.upcomingFuel }
+const fuelReminder = await collectFuelReminder(collectedAt, getText, guangdongFuelResult.officialOutcome)
+const rawSnapshot = { collectedAt: collectedAt.toISOString(), xauUsd, xagUsd, usdCny, exchangeRates, au9999, agTd, internationalGoldCny, spread, internationalSilverCny, domesticSilverCny, silverSpread, brands, guangdongFuel, upcomingFuel: guangdongFuelResult.upcomingFuel, fuelReminder }
 const result = await persistSnapshot(rawSnapshot, DEFAULT_STORE_PATH)
 console.log(JSON.stringify({ liveSnapshot: result.liveSnapshot, displaySnapshot: result.displaySnapshot }, null, 2))
